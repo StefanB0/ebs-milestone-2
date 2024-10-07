@@ -1,0 +1,17 @@
+services:
+  app:
+    image: ebs-milestone-2
+    build: .
+    environment:
+      - DEBUG=true
+      - DATABASE_URL=postgres://admin:adminpass@postgres-db:5432/POSTGRESDB1
+    ports:
+      - "8000:8000"
+  postgres-db:
+    image: postgres:latest
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_DB: POSTGRESDB1
+      POSTGRES_PASSWORD: adminpass
+    ports:
+      - 5432:5432

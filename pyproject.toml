@@ -1,0 +1,24 @@
+[tool.poetry]
+name = "ebs-milestone-2"
+version = "0.1.0"
+description = ""
+authors = ["none"]
+readme = "README.md"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.12"
+django = "^5.1.1"
+django-environ = "^0.11.2"
+psycopg2-binary = "^2.9.9"
+
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.6.9"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+line-length = 120
