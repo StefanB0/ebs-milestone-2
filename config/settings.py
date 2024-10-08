@@ -14,6 +14,11 @@ import environ
 
 from pathlib import Path
 
+# Django-environ
+env = environ.Env(
+    DOCKER=(bool, False)
+)
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -46,9 +51,9 @@ INSTALLED_APPS = [
     "corsheaders",
     "drf_spectacular",
     # Local apps
-    # "apps.common",
-    # "apps.users",
-    # "apps.blog",
+    "apps.common",
+    "apps.users",
+    "apps.blog",
 ]
 
 MIDDLEWARE = [
@@ -110,16 +115,17 @@ REST_FRAMEWORK = {
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
-# DATABASES = {
-#     "default": {
-#         'ENGINE': 'django.db.backends.postgresql',
-#         'NAME': 'POSTGRESDB1',
-#         'USER': 'admin',
-#         'PASSWORD': 'adminpass',
-#         'HOST': 'postgres-db',
-#         'PORT': '5432'
-#     }
-# }
+# Parse database connection url strings like psql://user:pass@127.0.0.1:8458/db
+
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": BASE_DIR / "db.sqlite3",
+    }
+}
+
+if env("DOCKER"):
+    DATABASES = {'default': env.db()}
 
 
 # Password validation
@@ -169,9 +175,3 @@ SPECTACULAR_SETTINGS = {
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": True,
 }
-
-### Django-environ ###
-env = environ.Env()
-
-# Parse database connection url strings like psql://user:pass@127.0.0.1:8458/db
-DATABASES = {'default': env.db()}

@@ -7,6 +7,8 @@ services:
       - DATABASE_URL=postgres://admin:adminpass@postgres-db:5432/POSTGRESDB1
     ports:
       - "8000:8000"
+    # tty: true
+    # entrypoint: bash
   postgres-db:
     image: postgres:latest
     environment:

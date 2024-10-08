@@ -20,8 +20,11 @@ ENV PATH="/app/.venv/bin:$PATH"
 
 COPY ./config ./config
 COPY ./manage.py ./manage.py
+COPY ./apps ./apps
 
 EXPOSE 8000
+
+ENV DOCKER=true
 
 ENV DJANGO_SUPERUSER_USERNAME=admin
 ENV DJANGO_SUPERUSER_PASSWORD=admin
