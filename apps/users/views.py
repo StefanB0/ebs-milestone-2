@@ -51,5 +51,5 @@ class UserListView(GenericAPIView):
 
     def get(self, request: Request) -> Response:
         users = User.objects.all()
-        users_data = map(lambda user: {"id": user.id, "fullname": user.first_name + user.last_name}, users)
+        users_data = map(lambda user: {"id": user.id, "fullname": user.first_name + " " + user.last_name}, users)
         return Response(users_data)
