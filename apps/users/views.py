@@ -14,7 +14,7 @@ from drf_spectacular.utils import extend_schema, inline_serializer
 
 from rest_framework import serializers
 
-from apps.users.serializers import UserSerializer
+from apps.users.serializers import UserSerializer, UserRegisterSerializer
 from apps.common.permissions import ReadOnly
 
 
@@ -63,34 +63,6 @@ class UserListView(GenericAPIView):
         users = User.objects.all()
         users_data = map(lambda user: {"id": user.id, "fullname": user.first_name + " " + user.last_name}, users)
         return Response(users_data)
-
-
-class UserRegisterSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True)
-
-    class Meta:
-        model = User
-        fields = (
-            "first_name",
-            "last_name",
-            "username",
-            "email",
-            "password",
-        )
-
-
-class UserLoginSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True)
-
-    class Meta:
-        model = User
-        fields = (
-            "first_name",
-            "last_name",
-            "username",
-            "email",
-            "password",
-        )
 
 
 class UserViewSet(RetrieveModelMixin, ListModelMixin, GenericViewSet):

@@ -19,12 +19,22 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
+from rest_framework.routers import DefaultRouter, SimpleRouter
+
+from apps.users.views import UserViewSet
+from apps.tasks.views import TaskViewSet
+
+router = SimpleRouter()
+router.register("tasks", TaskViewSet, basename="tasks")
+router.register("users/users", UserViewSet)
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("common/", include("apps.common.urls")),
     path("users/", include("apps.users.urls")),
 ]
+
+urlpatterns += router.urls
 
 if settings.DEBUG:
     urlpatterns.extend(
