@@ -29,12 +29,16 @@ class RegisterUserView(GenericAPIView):
             is_staff=True,
         )
 
+        if user.username:
+            user.username = user.first_name + user.last_name
+
         # Set password
         user.set_password(password)
         user.save()
 
         refresh = RefreshToken.for_user(user)
 
+        # ? Swagger doesnt display correct response fields
         return Response({
             'refresh': str(refresh),
             'access': str(refresh.access_token),
