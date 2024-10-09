@@ -4,11 +4,19 @@ from apps.tasks.models import Task, Comment
 
 
 class TaskSerializer(serializers.ModelSerializer):
-    user = serializers.PrimaryKeyRelatedField(many=False, read_only=True)
-
     class Meta:
         model = Task
         fields = ["title", "description", "is_completed", "user"]
+
+
+class TaskCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Task
+        fields = ["title", "description", "is_completed", "user"]
+        extra_kwargs = {
+            "user": {"default": serializers.CurrentUserDefault(), "read_only": True}
+        }
+
 
 
 class CommentSerializer(serializers.ModelSerializer):
