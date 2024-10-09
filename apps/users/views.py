@@ -18,7 +18,11 @@ from apps.users.serializers import UserSerializer, UserRegisterSerializer
 from apps.common.permissions import ReadOnly
 
 
-@extend_schema(responses=inline_serializer(name="abcd", fields={"refresh": serializers.CharField(), "access": serializers.CharField()}))
+@extend_schema(
+    responses=inline_serializer(
+        name="abcd", fields={"refresh": serializers.CharField(), "access": serializers.CharField()}
+    )
+)
 class RegisterUserView(GenericAPIView):
     serializer_class = UserSerializer
     permission_classes = (AllowAny,)
@@ -77,7 +81,11 @@ class UserViewSet(RetrieveModelMixin, ListModelMixin, GenericViewSet):
         authentication_classes=[],
         permission_classes=[AllowAny],
     )
-    @extend_schema(responses=inline_serializer(name="abcd", fields={"refresh": serializers.CharField(), "access": serializers.CharField()}))
+    @extend_schema(
+        responses=inline_serializer(
+            name="abcd", fields={"refresh": serializers.CharField(), "access": serializers.CharField()}
+        )
+    )
     def register(self, request, *args, **kwargs):
         #  Validate data
         serializer = self.serializer_class(data=request.data)

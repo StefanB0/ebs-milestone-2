@@ -15,6 +15,7 @@ class UserSerializer(serializers.ModelSerializer):
             "password",
         )
 
+
 class UserRegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
 
