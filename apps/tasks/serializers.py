@@ -18,6 +18,9 @@ class TaskCreateSerializer(serializers.ModelSerializer):
         }
 
 
+class TaskSearchSerializer(serializers.Serializer):
+    search = serializers.CharField(max_length=255)
+
 class TaskUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Task

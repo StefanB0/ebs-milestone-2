@@ -1,10 +1,10 @@
-from rest_framework.viewsets import ModelViewSet
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.viewsets import ModelViewSet, GenericViewSet
+from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
 from rest_framework.decorators import action
-from rest_framework import status
+from rest_framework import status, mixins
 
-from apps.tasks.models import Task
-from apps.tasks.serializers import TaskSerializer, TaskCreateSerializer, TaskUpdateSerializer, EmptySerializer
+from apps.tasks.models import Task, Comment
+from apps.tasks.serializers import TaskSerializer, TaskCreateSerializer, TaskUpdateSerializer, TaskSearchSerializer, CommentSerializer, EmptySerializer
 from rest_framework.response import Response
 
 # Create your views here.
@@ -66,6 +66,15 @@ class TaskViewSet(ModelViewSet):
 
         return Response(serializer_data)
 
+    @action(detail=False, methods=["POST"], url_path="search", serializer_class=TaskSearchSerializer)
+    def search(self, request, *args, **kwargs):
+        search_serializer = self.get_serializer(data=request.data)
+        search_serializer.is_valid(raise_exception=True)
+        queryset = Task.objects.filter(title__icontains=search_serializer.validated_data["search"])
+        serializer = TaskSerializer(queryset, many=True)
+
+        return Response(serializer.data)
+
     @action(detail=True, methods=["PATCH"], url_path="assign", serializer_class=TaskUpdateSerializer)
     def assign_task(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -93,3 +102,35 @@ class TaskViewSet(ModelViewSet):
         task.save()
 
         return Response({"message": "Task completed successfully"})
+
+
+    @action(detail=True, methods=["GET"], url_path="comments")
+    def comments(self, request, *args, **kwargs):
+        comments = Comment.objects.filter(task=kwargs["pk"])
+        serializer = CommentSerializer(comments, many=True)
+
+        return Response(serializer.data)
+
+class CommentViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, GenericViewSet):
+    permission_classes = [IsAuthenticated]
+    serializer_class = CommentSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        return Comment.objects.filter(task__user=user)
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        # task_id = kwargs["task_id"]
+        # if not Task.objects.filter(id=task_id).exists():
+        #     return Response({"message": "Task does not exist"}, status=404)
+        task = serializer.validated_data["task"]
+        # task = Task.objects.get(id=task_id)
+        if task.user != request.user:
+            return Response({"message": "Task does not belong to current user"}, status=403)
+
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response({"comment_id": serializer.data["id"]}, status=status.HTTP_201_CREATED, headers=headers)
