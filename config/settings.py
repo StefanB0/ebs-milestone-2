@@ -150,6 +150,11 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+AUTHENTICATION_BACKENDS = [
+    'apps.users.auth_backend.EmailLoginBackend',  # Replace 'yourapp' with your app name
+    'django.contrib.auth.backends.ModelBackend',  # Keep the default backend for username support
+]
+
 
 # Internationalization
 # https://docs.djangoproject.com/en/5.1/topics/i18n/
