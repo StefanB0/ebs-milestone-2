@@ -3,14 +3,14 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 
 from apps.tasks.models import Task, Comment
-from apps.tasks.serializers import TaskSerializer, CommentSerializer
+from apps.tasks.serializers import TaskCreateSerializer, CommentSerializer
 
 # Create your views here.
 
 class TaskViewSet(ModelViewSet):
-    serializer_class = TaskSerializer
-    permission_classes = [IsAuthenticated]
+    queryset = Task.objects.all()
+    serializer_class = TaskCreateSerializer
 
     def get_queryset(self):
-        user = self.request.user
-        return Task.objects.filter(user=user)
+        queryset = super().get_queryset()
+        return queryset.filter(user=self.request.user)
