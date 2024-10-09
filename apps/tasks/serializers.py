@@ -12,14 +12,23 @@ class TaskSerializer(serializers.ModelSerializer):
 class TaskCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Task
-        fields = ["title", "description", "is_completed", "user"]
+        fields = ["title", "description", "is_completed"]
         extra_kwargs = {
             "user": {"default": serializers.CurrentUserDefault(), "read_only": True}
         }
 
+
+class TaskUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Task
+        fields = ["id", "user"]
 
 
 class CommentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Comment
         fields = "__all__"
+
+
+class EmptySerializer(serializers.Serializer):
+    pass
