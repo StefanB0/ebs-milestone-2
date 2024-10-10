@@ -149,7 +149,7 @@ class TaskViewSet(ModelViewSet):
         response_data = [comment.body for comment in comments]
         return Response(response_data)
 
-class CommentViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, GenericViewSet):
+class CommentViewSet(mixins.CreateModelMixin, GenericViewSet):
     permission_classes = [IsAuthenticated]
     serializer_class = CommentSerializer
 
