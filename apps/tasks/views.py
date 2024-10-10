@@ -158,7 +158,9 @@ class CommentViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, GenericView
         return Comment.objects.filter(task__user=user)
 
     def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
+        data = request.data.copy()
+        data["user"] = request.user.id
+        serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
 
         task = serializer.validated_data["task"]

@@ -205,12 +205,14 @@ class TestComments(APITestCase):
             Task.objects.create(**test)
             for comment in comments:
                 comment["task"] = Task.objects.get(title=test["title"])
+                comment["user"] = self.user2
                 Comment.objects.create(**comment)
 
         for test in tests[:-1]:
             test["user"] = self.user2
             Task.objects.create(**test)
             comments[0]["task"] = Task.objects.get(title=test["title"], user=self.user2)
+            comments[0]["user"] = self.user
             Comment.objects.create(**comments[0])
 
     def test_add_comment(self) -> None:
@@ -232,21 +234,63 @@ class TestComments(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), len(comments))
 
-    def test_send_email(self):
-        # Send message.
-        mail.send_mail(
-            "Subject here",
-            "Here is the message.",
-            "from@mail.com",
-            ["to@example.com"],
-            fail_silently=False,
+class TestMail(APITestCase):
+    def setUp(self) -> None:
+        self.client = APIClient()
+
+        self.user = User.objects.create(
+            email="aadmin@admin.com",
+            first_name="admin",
+            last_name="admin",
+            username="admin",
+            password="admin",
+        )
+        self.user2 = User.objects.create(
+            email="admin2@admin.com",
+            first_name="admin2",
+            last_name="admin2",
+            username="admin2",
+            password="admin2",
         )
 
-        # Test that one message has been sent.
-        self.assertEqual(len(mail.outbox), 1)
-        from pprint import pprint, pp
-        pprint(mail.outbox[0])
-        pp(mail.outbox)
+        for test in tests:
+            test["user"] = self.user
+            Task.objects.create(**test)
 
-        # Verify that the subject of the first message is correct.
-        self.assertEqual(mail.outbox[0].subject, "Subject here")
+    def test_mail_assign_task(self) -> None:
+        self.client.force_authenticate(user=self.user)
+        response = self.client.patch(reverse("tasks-assign-task", args=[1]), {"user": self.user2.id})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # check if email is sent
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].subject, "Task assigned")
+
+    def test_mail_complete_task(self) -> None:
+        self.client.force_authenticate(user=self.user)
+        response = self.client.patch(reverse("tasks-complete-task", args=[1]))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # check if email is sent
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].subject, "Task completed")
+
+    def test_mail_comment_complete_task(self) -> None:
+        self.client.force_authenticate(user=self.user2)
+        response = self.client.post(reverse("comments-list"), {"body": "Test comment 000", "task": 1})
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        self.client.force_authenticate(user=self.user)
+        response = self.client.patch(reverse("tasks-complete-task", args=[1]))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+
+        # check if email is sent
+        self.assertEqual(len(mail.outbox), 3)
+        self.assertEqual(mail.outbox[2].subject, "Task completed")
+
+        # check if email is sent to comment user
+        self.assertEqual(mail.outbox[2].to, [self.user2.email])
+    

@@ -17,6 +17,7 @@ class Task(models.Model):
 class Comment(models.Model):
     body = models.TextField()
     task = models.ForeignKey(Task, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
 
     def __str__(self) -> str:
         return self.body
