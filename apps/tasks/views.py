@@ -1,11 +1,13 @@
 from rest_framework.viewsets import ModelViewSet, GenericViewSet
 from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
 from rest_framework.decorators import action
+from rest_framework.response import Response
 from rest_framework import status, mixins
+
+from django.core.mail import send_mail
 
 from apps.tasks.models import Task, Comment
 from apps.tasks.serializers import TaskSerializer, TaskCreateSerializer, TaskUpdateSerializer, TaskSearchSerializer, CommentSerializer, EmptySerializer
-from rest_framework.response import Response
 
 # Create your views here.
 
@@ -13,20 +15,18 @@ from rest_framework.response import Response
 class TaskViewSet(ModelViewSet):
     serializer_class = TaskSerializer
     permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        user = self.request.user
-        return Task.objects.filter(user=user)
+    queryset = Task.objects.all()
 
     def create(self, request, *args, **kwargs):
         serializer = TaskCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         serializer.save(user=self.request.user)
         headers = self.get_success_headers(serializer.data)
-        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        task_id = serializer.instance.id
+        return Response({"task_id": task_id}, status=status.HTTP_201_CREATED, headers=headers)
 
     def list(self, request, *args, **kwargs):
-        queryset = self.filter_queryset(self.get_queryset())
+        queryset = Task.objects.filter(user=request.user)
 
         page = self.paginate_queryset(queryset)
         if page is not None:
@@ -46,11 +46,17 @@ class TaskViewSet(ModelViewSet):
 
     def retrieve(self, request, *args, **kwargs):
         s_retrieve = super().retrieve(request, *args, **kwargs)
-        s_retrieve.data["id"] = s_retrieve.data["user"]
+        task = Task.objects.get(id=kwargs["pk"])
 
-        return s_retrieve
+        retrieve_data = {
+            "id": task.id,
+            **s_retrieve.data
+        }
 
-    @action(detail=False, methods=["GET"], url_path="all")
+
+        return Response(retrieve_data)
+
+    @action(detail=False, methods=["GET"], url_path="all", url_name="all-tasks")
     def all_tasks(self, request, *args, **kwargs):
         queryset = Task.objects.all()
         query_data = [{"id": instance.id, "title": instance.title} for instance in queryset]
@@ -70,10 +76,11 @@ class TaskViewSet(ModelViewSet):
     def search(self, request, *args, **kwargs):
         search_serializer = self.get_serializer(data=request.data)
         search_serializer.is_valid(raise_exception=True)
-        queryset = Task.objects.filter(title__icontains=search_serializer.validated_data["search"])
+        queryset = Task.objects.filter(title__icontains=search_serializer.validated_data["search"], user=request.user)
         serializer = TaskSerializer(queryset, many=True)
 
-        return Response(serializer.data)
+        response_data = [{"id": task["user"], "title": task["title"]} for task in serializer.data]
+        return Response(response_data)
 
     @action(detail=True, methods=["PATCH"], url_path="assign", serializer_class=TaskUpdateSerializer)
     def assign_task(self, request, *args, **kwargs):
@@ -83,12 +90,21 @@ class TaskViewSet(ModelViewSet):
         serializer.is_valid(raise_exception=True)
         new_user = serializer.validated_data["user"]
 
-        if new_user == request.user:
-            return Response({"message": "Task already assigned to current user"}, status=400)
-
         task = queryset.get(id=kwargs["pk"])
+        old_user = task.user
+        if old_user == new_user:
+            return Response({"message": "Task assigned successfully"}, status=200)
+        
         task.user = serializer.validated_data["user"]
         task.save()
+
+        send_mail(
+            subject="Task assigned",
+            message=f"Task [{task.title}] has been assigned to you",
+            from_email="from@example.com",
+            recipient_list=[new_user.email],
+            fail_silently=False,
+        )
 
         return Response({"message": "Task assigned successfully"})
 
@@ -98,8 +114,29 @@ class TaskViewSet(ModelViewSet):
 
         task = queryset.get(id=kwargs["pk"])
 
+        if task.is_completed:
+            return Response({"message": "Task completed successfully"}, status=200)
+
         task.is_completed = True
         task.save()
+
+        send_mail(
+            subject="Task completed",
+            message=f"Task [{task.title}] has been completed",
+            from_email="from@example.com",
+            recipient_list=[task.user.email],
+            fail_silently=False,
+        )
+
+        comments = Comment.objects.filter(task=task)
+        for comment in comments:
+            send_mail(
+                subject="Task completed",
+                message=f"Task [{task.title}] has been completed",
+                from_email="from@example.com",
+                recipient_list=[comment.user.email],
+                fail_silently=False,
+            )
 
         return Response({"message": "Task completed successfully"})
 
@@ -107,9 +144,10 @@ class TaskViewSet(ModelViewSet):
     @action(detail=True, methods=["GET"], url_path="comments")
     def comments(self, request, *args, **kwargs):
         comments = Comment.objects.filter(task=kwargs["pk"])
-        serializer = CommentSerializer(comments, many=True)
+        # serializer = CommentSerializer(comments, many=True)
 
-        return Response(serializer.data)
+        response_data = [comment.body for comment in comments]
+        return Response(response_data)
 
 class CommentViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, GenericViewSet):
     permission_classes = [IsAuthenticated]
@@ -123,13 +161,14 @@ class CommentViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, GenericView
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        # task_id = kwargs["task_id"]
-        # if not Task.objects.filter(id=task_id).exists():
-        #     return Response({"message": "Task does not exist"}, status=404)
         task = serializer.validated_data["task"]
-        # task = Task.objects.get(id=task_id)
-        if task.user != request.user:
-            return Response({"message": "Task does not belong to current user"}, status=403)
+        send_mail(
+            subject="Comment added",
+            message=f"Comment added to task [{task.title}]",
+            from_email="example@mail.com",
+            recipient_list=[task.user.email],
+            fail_silently=False,
+        )
 
         self.perform_create(serializer)
         headers = self.get_success_headers(serializer.data)
