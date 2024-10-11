@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from apps.tasks.models import Task, Comment
+from apps.tasks.models import Task, Comment, TimeLog
 
 
 class TaskSerializer(serializers.ModelSerializer):
@@ -13,13 +13,12 @@ class TaskCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Task
         fields = ["title", "description", "is_completed"]
-        extra_kwargs = {
-            "user": {"default": serializers.CurrentUserDefault(), "read_only": True}
-        }
+        extra_kwargs = {"user": {"default": serializers.CurrentUserDefault(), "read_only": True}}
 
 
 class TaskSearchSerializer(serializers.Serializer):
     search = serializers.CharField(max_length=255)
+
 
 class TaskUpdateSerializer(serializers.ModelSerializer):
     class Meta:
@@ -31,6 +30,12 @@ class CommentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Comment
         fields = "__all__"
+
+
+class TimeLogSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TimeLog
+        fields = ("task", "start_time", "duration")
 
 
 class EmptySerializer(serializers.Serializer):

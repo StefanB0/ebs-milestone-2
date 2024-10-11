@@ -1,13 +1,24 @@
+from django.utils import timezone
+
 from rest_framework.viewsets import ModelViewSet, GenericViewSet
-from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework import status, mixins
 
 from django.core.mail import send_mail
 
-from apps.tasks.models import Task, Comment
-from apps.tasks.serializers import TaskSerializer, TaskCreateSerializer, TaskUpdateSerializer, TaskSearchSerializer, CommentSerializer, EmptySerializer
+
+from apps.tasks.models import Task, Comment, TimeLog
+from apps.tasks.serializers import (
+    TaskSerializer,
+    TaskCreateSerializer,
+    TaskUpdateSerializer,
+    TaskSearchSerializer,
+    CommentSerializer,
+    EmptySerializer,
+    TimeLogSerializer,
+)
 
 # Create your views here.
 
@@ -48,38 +59,32 @@ class TaskViewSet(ModelViewSet):
         s_retrieve = super().retrieve(request, *args, **kwargs)
         task = Task.objects.get(id=kwargs["pk"])
 
-        retrieve_data = {
-            "id": task.id,
-            **s_retrieve.data
-        }
-
+        retrieve_data = {"id": task.id, **s_retrieve.data}
 
         return Response(retrieve_data)
 
     @action(detail=False, methods=["GET"], url_path="all", url_name="all-tasks")
     def all_tasks(self, request, *args, **kwargs):
         queryset = Task.objects.all()
-        query_data = [{"id": instance.id, "title": instance.title} for instance in queryset]
+        query_data = [{"id": task.id, "title": task.title} for task in queryset]
 
         return Response(query_data)
 
     @action(detail=False, methods=["GET"], url_path="completed")
     def completed_tasks(self, request, *args, **kwargs):
         queryset = Task.objects.filter(is_completed=True, user=request.user)
-        serializer = self.get_serializer(queryset, many=True)
 
-        serializer_data = [{"id": task["user"], "title": task["title"]} for task in serializer.data]
+        query_data = [{"id": task.id, "title": task.title} for task in queryset]
 
-        return Response(serializer_data)
+        return Response(query_data)
 
     @action(detail=False, methods=["POST"], url_path="search", serializer_class=TaskSearchSerializer)
     def search(self, request, *args, **kwargs):
         search_serializer = self.get_serializer(data=request.data)
         search_serializer.is_valid(raise_exception=True)
-        queryset = Task.objects.filter(title__icontains=search_serializer.validated_data["search"], user=request.user)
-        serializer = TaskSerializer(queryset, many=True)
+        queryset = Task.objects.filter(title__icontains=search_serializer.validated_data["search"])
 
-        response_data = [{"id": task["user"], "title": task["title"]} for task in serializer.data]
+        response_data = [{"id": task.id, "title": task.title} for task in queryset]
         return Response(response_data)
 
     @action(detail=True, methods=["PATCH"], url_path="assign", serializer_class=TaskUpdateSerializer)
@@ -94,7 +99,7 @@ class TaskViewSet(ModelViewSet):
         old_user = task.user
         if old_user == new_user:
             return Response({"message": "Task assigned successfully"}, status=200)
-        
+
         task.user = serializer.validated_data["user"]
         task.save()
 
@@ -140,7 +145,6 @@ class TaskViewSet(ModelViewSet):
 
         return Response({"message": "Task completed successfully"})
 
-
     @action(detail=True, methods=["GET"], url_path="comments")
     def comments(self, request, *args, **kwargs):
         comments = Comment.objects.filter(task=kwargs["pk"])
@@ -148,6 +152,34 @@ class TaskViewSet(ModelViewSet):
 
         response_data = [comment.body for comment in comments]
         return Response(response_data)
+
+    @action(detail=True, methods=["PATCH"], url_path="start-timer")
+    def start_timer(self, request, *args, **kwargs):
+        task = Task.objects.get(id=kwargs["pk"])
+        try:
+            TimeLog.objects.create(task=task, start_time=timezone.now())
+        except Exception as e:
+            return Response({"message": str(e)}, status=403)
+        return Response({"message": "Timer started"}, status=200)
+
+    @action(detail=True, methods=["PATCH"], url_path="stop-timer")
+    def stop_timer(self, request, *args, **kwargs):
+        task = Task.objects.get(id=kwargs["pk"])
+        time_log = TimeLog.objects.filter(task=task).latest("start_time")
+        try:
+            time_log.stop()
+        except Exception as e:
+            return Response({"message": str(e)}, status=403)
+        return Response({"message": "Timer stopped", "time spent on task": task.time_spent}, status=200)
+
+    @action(detail=True, methods=["GET"], url_path="timer-logs", serializer_class=TimeLogSerializer)
+    def timer_logs(self, request, *args, **kwargs):
+        task = Task.objects.get(id=kwargs["pk"])
+        time_logs = task.get_time_logs()
+        serializer = self.get_serializer(time_logs, many=True)
+        response_data = [{"id": time_log.id, **serializer.data} for time_log in time_logs]
+        return Response(serializer.data)
+
 
 class CommentViewSet(mixins.CreateModelMixin, GenericViewSet):
     permission_classes = [IsAuthenticated]
@@ -175,3 +207,15 @@ class CommentViewSet(mixins.CreateModelMixin, GenericViewSet):
         self.perform_create(serializer)
         headers = self.get_success_headers(serializer.data)
         return Response({"comment_id": serializer.data["id"]}, status=status.HTTP_201_CREATED, headers=headers)
+
+
+class TaskTimeLogViewSet(mixins.CreateModelMixin, GenericViewSet):
+    permission_classes = [IsAuthenticated]
+    serializer_class = TimeLogSerializer
+
+    def create(self, request, *args, **kwargs):
+        response = super().create(request, *args, **kwargs)
+        return Response(
+            {"message": "Time Log successfully created", "time_log_id": response.data["id"]},
+            status=status.HTTP_201_CREATED,
+        )

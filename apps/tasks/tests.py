@@ -1,95 +1,56 @@
+from django.contrib.auth.models import User
 from django.urls import reverse
 from django.core import mail
-from django.contrib.auth.models import User
+from django.utils import timezone
 
 from rest_framework import status
-from rest_framework.test import APIRequestFactory, APIClient, APITestCase
+from rest_framework.test import APIClient, APITestCase
 
-from apps.tasks.models import Task, Comment
+from apps.tasks.models import Task, Comment, TimeLog
+from apps.tasks.serializers import TaskSerializer, CommentSerializer, TimeLogSerializer
 
-tests = [
-    {
-        "title": "Test task 1",
-        "description": "Test description 1",
-        "is_completed": False,
-    },
-    {
-        "title": "Test task 2",
-        "description": "Test description 2",
-        "is_completed": True,
-    },
-    {
-        "title": "Test task 3",
-        "description": "Test description 3",
-        "is_completed": False,
-    },
-]
-
-comments = [
-    {
-        "body": "Test comment 1",
-    },
-    {
-        "body": "Test comment 2",
-    },
-]
 
 class TestTasks(APITestCase):
+    fixtures = ["users", "tasks"]
+
     def setUp(self) -> None:
         self.client = APIClient()
 
-        self.user = User.objects.create(
-            email="aadmin@admin.com",
-            first_name="admin",
-            last_name="admin",
-            username="admin",
-            password="admin",
-        )
-        self.user2 = User.objects.create(
-            email="admin2@admin.com",
-            first_name="admin2",
-            last_name="admin2",
-            username="admin2",
-            password="admin2",
-        )
+        self.user = User.objects.get(pk=1)
+        self.user2 = User.objects.get(pk=2)
 
-        for test in tests:
-            test["user"] = self.user
-            Task.objects.create(**test)
-        for test in tests[:-1]:
-            test["user"] = self.user2
-            Task.objects.create(**test)
+        self.tasks = TaskSerializer(Task.objects.all(), many=True).data
+        self.comments = CommentSerializer(Comment.objects.all(), many=True).data
 
     def test_create_task(self) -> None:
         self.client.force_authenticate(user=self.user)
-        response = self.client.post(reverse("tasks-list"), tests[0])
+        response = self.client.post(reverse("tasks-list"), self.tasks[0])
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertContains(response, "task_id", status_code=201)
-
 
     def test_get_tasks(self) -> None:
         self.client.force_authenticate(user=self.user)
         response = self.client.get(reverse("tasks-list"))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), len(tests))
+        self.assertEqual(len(response.data), Task.objects.filter(user=self.user).count())
 
         self.client.force_authenticate(user=self.user2)
         response = self.client.get(reverse("tasks-list"))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), len(tests) - 1)
+        self.assertEqual(len(response.data), Task.objects.filter(user=self.user2).count())
 
     def test_get_all_task(self) -> None:
         self.client.force_authenticate(user=self.user)
         response = self.client.get(reverse("tasks-all-tasks"))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), len(tests) * 2 - 1)
+        self.assertEqual(len(response.data), len(self.tasks))
         self.assertContains(response, "title")
         self.assertContains(response, "id")
-    
+
     def test_get_task(self) -> None:
         self.client.force_authenticate(user=self.user)
         response = self.client.get(reverse("tasks-detail", args=[1]))
@@ -101,7 +62,7 @@ class TestTasks(APITestCase):
         self.assertContains(response, "is_completed")
         self.assertContains(response, "user")
 
-        response = self.client.get(reverse("tasks-detail", args=[5]))
+        response = self.client.get(reverse("tasks-detail", args=[6]))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["user"], self.user2.id)
 
@@ -109,27 +70,30 @@ class TestTasks(APITestCase):
         self.client.force_authenticate(user=self.user)
         response = self.client.get(reverse("tasks-completed-tasks"))
 
+        completed_tasks = Task.objects.filter(is_completed=True, user=self.user)
+
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]["title"], tests[1]["title"])
-        self.assertEqual(response.data[0]["id"], self.user.id)
+        self.assertEqual(len(response.data), completed_tasks.count())
+        self.assertEqual(response.data[0]["title"], self.tasks[1]["title"])
+        self.assertEqual(response.data[0]["id"], completed_tasks[0].id)
         self.assertContains(response, "title")
         self.assertContains(response, "id")
 
     def test_search_task(self) -> None:
         self.client.force_authenticate(user=self.user)
-        response = self.client.post(reverse("tasks-search"), {"search": "1"})
+        response = self.client.post(reverse("tasks-search"), {"search": "Test task 1"})
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]["title"], tests[0]["title"])
+        self.assertEqual(response.data[0]["title"], self.tasks[0]["title"])
         self.assertEqual(response.data[0]["id"], 1)
         self.assertContains(response, "title")
         self.assertContains(response, "id")
 
-        response = self.client.post(reverse("tasks-search"), {"search": "Test"})
+        response = self.client.post(reverse("tasks-search"), {"search": "Finish"})
+        task_nr = Task.objects.filter(title__icontains="Finish").count()
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), len(tests))
+        self.assertEqual(len(response.data), task_nr)
 
     def test_assign_task(self) -> None:
         self.client.force_authenticate(user=self.user)
@@ -181,39 +145,18 @@ class TestTasks(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
 
+
 class TestComments(APITestCase):
+    fixtures = ["users", "tasks", "comments"]
+
     def setUp(self) -> None:
         self.client = APIClient()
 
-        self.user = User.objects.create(
-            email="aadmin@admin.com",
-            first_name="admin",
-            last_name="admin",
-            username="admin",
-            password="admin",
-        )
-        self.user2 = User.objects.create(
-            email="admin2@admin.com",
-            first_name="admin2",
-            last_name="admin2",
-            username="admin2",
-            password="admin2",
-        )
+        self.user = User.objects.get(pk=1)
+        self.user2 = User.objects.get(pk=2)
 
-        for test in tests:
-            test["user"] = self.user
-            Task.objects.create(**test)
-            for comment in comments:
-                comment["task"] = Task.objects.get(title=test["title"])
-                comment["user"] = self.user2
-                Comment.objects.create(**comment)
-
-        for test in tests[:-1]:
-            test["user"] = self.user2
-            Task.objects.create(**test)
-            comments[0]["task"] = Task.objects.get(title=test["title"], user=self.user2)
-            comments[0]["user"] = self.user
-            Comment.objects.create(**comments[0])
+        self.tasks = TaskSerializer(Task.objects.all(), many=True).data
+        self.comments = CommentSerializer(Comment.objects.all(), many=True).data
 
     def test_add_comment(self) -> None:
         self.client.force_authenticate(user=self.user)
@@ -229,33 +172,21 @@ class TestComments(APITestCase):
 
     def test_get_comments(self) -> None:
         self.client.force_authenticate(user=self.user)
+        comment_nr = Task.objects.get(id=1).comment_set.count()
         response = self.client.get(reverse("tasks-comments", args=[1]))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), len(comments))
+        self.assertEqual(len(response.data), comment_nr)
+
 
 class TestMail(APITestCase):
+    fixtures = ["users", "tasks", "comments"]
+
     def setUp(self) -> None:
         self.client = APIClient()
 
-        self.user = User.objects.create(
-            email="aadmin@admin.com",
-            first_name="admin",
-            last_name="admin",
-            username="admin",
-            password="admin",
-        )
-        self.user2 = User.objects.create(
-            email="admin2@admin.com",
-            first_name="admin2",
-            last_name="admin2",
-            username="admin2",
-            password="admin2",
-        )
-
-        for test in tests:
-            test["user"] = self.user
-            Task.objects.create(**test)
+        self.user = User.objects.get(pk=1)
+        self.user2 = User.objects.get(pk=2)
 
     def test_mail_assign_task(self) -> None:
         self.client.force_authenticate(user=self.user)
@@ -269,7 +200,7 @@ class TestMail(APITestCase):
 
     def test_mail_complete_task(self) -> None:
         self.client.force_authenticate(user=self.user)
-        response = self.client.patch(reverse("tasks-complete-task", args=[1]))
+        response = self.client.patch(reverse("tasks-complete-task", args=[4]))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
@@ -278,14 +209,9 @@ class TestMail(APITestCase):
         self.assertEqual(mail.outbox[0].subject, "Task completed")
 
     def test_mail_comment_complete_task(self) -> None:
-        self.client.force_authenticate(user=self.user2)
-        response = self.client.post(reverse("comments-list"), {"body": "Test comment 000", "task": 1})
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-
         self.client.force_authenticate(user=self.user)
         response = self.client.patch(reverse("tasks-complete-task", args=[1]))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-
 
         # check if email is sent
         self.assertEqual(len(mail.outbox), 3)
@@ -293,4 +219,128 @@ class TestMail(APITestCase):
 
         # check if email is sent to comment user
         self.assertEqual(mail.outbox[2].to, [self.user2.email])
-    
+
+
+class TestTimeLog(APITestCase):
+    fixtures = ["users", "tasks", "timelogs"]
+
+    def setUp(self) -> None:
+        self.client = APIClient()
+
+        self.user = User.objects.get(pk=1)
+        self.user2 = User.objects.get(pk=2)
+
+        self.tasks = TaskSerializer(Task.objects.all(), many=True).data
+        self.time_logs = TimeLogSerializer(TimeLog.objects.all(), many=True).data
+
+    def test_start_timer(self) -> None:
+        initial_count = TimeLog.objects.count()
+        initial_task_count = Task.objects.get(id=1).timelog_set.count()
+
+        self.client.force_authenticate(user=self.user)
+        response = self.client.patch(reverse("tasks-start-timer", args=[1]))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # check if timelog is created
+        self.assertEqual(TimeLog.objects.count(), initial_count + 1)
+        self.assertEqual(Task.objects.get(id=1).timelog_set.count(), initial_task_count + 1)
+
+        # start timer for already started task
+        initial_count = TimeLog.objects.count()
+        initial_task_count = Task.objects.get(id=1).timelog_set.count()
+
+        response = self.client.patch(reverse("tasks-start-timer", args=[1]))
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.data["message"], "Task timer is already running")
+
+        # check if timelog is not created
+        self.assertEqual(TimeLog.objects.count(), initial_count)
+        self.assertEqual(Task.objects.get(id=1).timelog_set.count(), initial_task_count)
+
+        # start timer for task that does not belong to user
+        self.client.force_authenticate(user=self.user2)
+        response = self.client.patch(reverse("tasks-start-timer", args=[1]))
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_stop_timer(self) -> None:
+        task = Task.objects.get(id=5)
+        TimeLog.objects.create(task=task, start_time=timezone.now() - timezone.timedelta(hours=1))
+
+        self.assertIsNone(task.timelog_set.first().duration)
+
+        self.client.force_authenticate(user=self.user)
+        response = self.client.patch(reverse("tasks-stop-timer", args=[5]))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # check if timelog is stopped
+        self.assertIsNotNone(task.timelog_set.first().duration)
+
+        # stop timer for already stopped task
+        response = self.client.patch(reverse("tasks-stop-timer", args=[1]))
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+        # stop timer for task that does not belong to user
+        self.client.force_authenticate(user=self.user2)
+        response = self.client.patch(reverse("tasks-stop-timer", args=[1]))
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def create_time_log(self) -> None:
+        task = Task.objects.get(id=1)
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.post(
+            reverse("timelogs-list"),
+            {
+                "task": task.id,
+                "start_time": timezone.now() - timezone.timedelta(hours=1),
+                "duration": timezone.timedelta(hours=1),
+            },
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        # check if timelog is created
+        self.assertIsNotNone(TimeLog.objects.get(id=response.data["time_log_id"]).duration)
+
+        # create timelog for task that does not belong to user
+        self.client.force_authenticate(user=self.user2)
+
+        response = self.client.post(
+            reverse("timelogs-list"),
+            {
+                "task": task.id,
+                "start_time": timezone.now() + timezone.timedelta(hours=1),
+                "duration": timezone.timedelta(hours=1),
+            },
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+        # create timelog when another timelog is running
+
+        response = self.client.post(
+            reverse("timelogs-list"),
+            {
+                "task": task.id,
+                "start_time": timezone.now() - timezone.timedelta(minutes=30),
+            },
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def get_time_logs(self) -> None:
+        task = Task.objects.get(id=1)
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.get(reverse("tasks-timer-logs", args=[task.id]))
+        print(response.status_code)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), task.timelog_set.count())
+
+        # get timelogs for task that does not belong to user
+        self.client.force_authenticate(user=self.user2)
+
+        response = self.client.get(reverse("tasks-timer-logs", args=[task.id]))
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(True, False)

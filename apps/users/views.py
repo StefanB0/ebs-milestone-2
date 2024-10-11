@@ -7,7 +7,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.viewsets import GenericViewSet
 from rest_framework.decorators import action
 from rest_framework.mixins import ListModelMixin, RetrieveModelMixin
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, TokenRefreshSerializer
+from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework import status
 from drf_spectacular.utils import extend_schema, inline_serializer
@@ -68,20 +68,24 @@ class UserListView(GenericAPIView):
         users_data = map(lambda user: {"id": user.id, "fullname": user.first_name + " " + user.last_name}, users)
         return Response(users_data)
 
+
 class UserLoginView(GenericAPIView):
     serializer_class = UserLoginSerializer
 
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        
-        user = serializer.validated_data['user']
+
+        user = serializer.validated_data["user"]
         refresh = RefreshToken.for_user(user)
-        
-        return Response({
-            'refresh': str(refresh),
-            'access': str(refresh.access_token),
-        }, status=status.HTTP_200_OK)
+
+        return Response(
+            {
+                "refresh": str(refresh),
+                "access": str(refresh.access_token),
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 class UserViewSet(RetrieveModelMixin, ListModelMixin, GenericViewSet):
@@ -142,14 +146,17 @@ class UserViewSet(RetrieveModelMixin, ListModelMixin, GenericViewSet):
     def login(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        
-        user = serializer.validated_data['user']
+
+        user = serializer.validated_data["user"]
         refresh = RefreshToken.for_user(user)
-        
-        return Response({
-            'refresh': str(refresh),
-            'access': str(refresh.access_token),
-        }, status=status.HTTP_200_OK)
+
+        return Response(
+            {
+                "refresh": str(refresh),
+                "access": str(refresh.access_token),
+            },
+            status=status.HTTP_200_OK,
+        )
 
     @action(
         detail=False,

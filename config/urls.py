@@ -22,12 +22,13 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, Spec
 from rest_framework.routers import SimpleRouter
 
 from apps.users.views import UserViewSet
-from apps.tasks.views import TaskViewSet, CommentViewSet
+from apps.tasks.views import TaskViewSet, CommentViewSet, TaskTimeLogViewSet
 
 router = SimpleRouter()
 router.register("users/users", UserViewSet)
 router.register("tasks", TaskViewSet, basename="tasks")
 router.register("comments", CommentViewSet, basename="comments")
+router.register("timelogs", TaskTimeLogViewSet, basename="timelogs")
 
 urlpatterns = [
     path("admin/", admin.site.urls),

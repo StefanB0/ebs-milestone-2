@@ -151,8 +151,8 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 AUTHENTICATION_BACKENDS = [
-    'apps.users.auth_backend.EmailLoginBackend',  # Replace 'yourapp' with your app name
-    'django.contrib.auth.backends.ModelBackend',  # Keep the default backend for username support
+    "apps.users.auth_backend.EmailLoginBackend",  # Replace 'yourapp' with your app name
+    "django.contrib.auth.backends.ModelBackend",  # Keep the default backend for username support
 ]
 
 
@@ -189,4 +189,3 @@ SPECTACULAR_SETTINGS = {
 # if DEBUG:
 EMAIL_BACKEND = "django.core.mail.backends.filebased.EmailBackend"
 EMAIL_FILE_PATH = BASE_DIR / "temp/dev-email"  # change this to a proper location
-
