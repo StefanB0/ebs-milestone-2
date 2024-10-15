@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     # Local apps
     "apps.common",
     "apps.users",
+    "apps.tasks",
 ]
 
 MIDDLEWARE = [
@@ -149,6 +150,11 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+AUTHENTICATION_BACKENDS = [
+    "apps.users.auth_backend.EmailLoginBackend",  # Replace 'yourapp' with your app name
+    "django.contrib.auth.backends.ModelBackend",  # Keep the default backend for username support
+]
+
 
 # Internationalization
 # https://docs.djangoproject.com/en/5.1/topics/i18n/
@@ -178,3 +184,8 @@ SPECTACULAR_SETTINGS = {
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": True,
 }
+
+# Email settings
+# if DEBUG:
+EMAIL_BACKEND = "django.core.mail.backends.filebased.EmailBackend"
+EMAIL_FILE_PATH = BASE_DIR / "temp/dev-email"  # change this to a proper location

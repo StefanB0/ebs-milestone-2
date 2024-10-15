@@ -7,20 +7,24 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.viewsets import GenericViewSet
 from rest_framework.decorators import action
 from rest_framework.mixins import ListModelMixin, RetrieveModelMixin
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, TokenRefreshSerializer
+from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework import status
 from drf_spectacular.utils import extend_schema, inline_serializer
 
 from rest_framework import serializers
 
-from apps.users.serializers import UserSerializer
+from apps.users.serializers import UserSerializer, UserRegisterSerializer, UserLoginSerializer
 from apps.common.permissions import ReadOnly
 
 
-@extend_schema(responses=inline_serializer(name="abcd", fields={"refresh": serializers.CharField(), "access": serializers.CharField()}))
+@extend_schema(
+    responses=inline_serializer(
+        name="abcd", fields={"refresh": serializers.CharField(), "access": serializers.CharField()}
+    )
+)
 class RegisterUserView(GenericAPIView):
-    serializer_class = UserSerializer
+    serializer_class = UserRegisterSerializer
     permission_classes = (AllowAny,)
     authentication_classes = ()
 
@@ -65,31 +69,22 @@ class UserListView(GenericAPIView):
         return Response(users_data)
 
 
-class UserRegisterSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True)
+class UserLoginView(GenericAPIView):
+    serializer_class = UserLoginSerializer
 
-    class Meta:
-        model = User
-        fields = (
-            "first_name",
-            "last_name",
-            "username",
-            "email",
-            "password",
-        )
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
+        user = serializer.validated_data["user"]
+        refresh = RefreshToken.for_user(user)
 
-class UserLoginSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True)
-
-    class Meta:
-        model = User
-        fields = (
-            "first_name",
-            "last_name",
-            "username",
-            "email",
-            "password",
+        return Response(
+            {
+                "refresh": str(refresh),
+                "access": str(refresh.access_token),
+            },
+            status=status.HTTP_200_OK,
         )
 
 
@@ -105,7 +100,11 @@ class UserViewSet(RetrieveModelMixin, ListModelMixin, GenericViewSet):
         authentication_classes=[],
         permission_classes=[AllowAny],
     )
-    @extend_schema(responses=inline_serializer(name="abcd", fields={"refresh": serializers.CharField(), "access": serializers.CharField()}))
+    @extend_schema(
+        responses=inline_serializer(
+            name="abcd", fields={"refresh": serializers.CharField(), "access": serializers.CharField()}
+        )
+    )
     def register(self, request, *args, **kwargs):
         #  Validate data
         serializer = self.serializer_class(data=request.data)
@@ -140,19 +139,24 @@ class UserViewSet(RetrieveModelMixin, ListModelMixin, GenericViewSet):
         detail=False,
         methods=["POST"],
         url_path="login",
-        serializer_class=TokenObtainPairSerializer,
+        serializer_class=UserLoginSerializer,
         authentication_classes=[],
         permission_classes=[AllowAny],
     )
     def login(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
-        try:
-            serializer.is_valid(raise_exception=True)
-        except TokenError as e:
-            raise InvalidToken(e.args[0])
+        user = serializer.validated_data["user"]
+        refresh = RefreshToken.for_user(user)
 
-        return Response(serializer.validated_data, status=status.HTTP_200_OK)
+        return Response(
+            {
+                "refresh": str(refresh),
+                "access": str(refresh.access_token),
+            },
+            status=status.HTTP_200_OK,
+        )
 
     @action(
         detail=False,
