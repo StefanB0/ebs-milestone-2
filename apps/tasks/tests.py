@@ -1,3 +1,5 @@
+import datetime
+
 from django.contrib.auth.models import User
 from django.urls import reverse
 from django.core import mail
@@ -11,7 +13,7 @@ from apps.tasks.serializers import TaskSerializer, CommentSerializer, TimeLogSer
 
 
 class TestTasks(APITestCase):
-    fixtures = ["users", "tasks"]
+    fixtures = ["users", "tasks", "timelogs"]
 
     def setUp(self) -> None:
         self.client = APIClient()
@@ -33,14 +35,36 @@ class TestTasks(APITestCase):
         self.client.force_authenticate(user=self.user)
         response = self.client.get(reverse("tasks-list"))
 
+        # Base usage
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), Task.objects.filter(user=self.user).count())
+        self.assertContains(response, "id")
+        self.assertContains(response, "title")
 
+        # Get tasks for another user
         self.client.force_authenticate(user=self.user2)
         response = self.client.get(reverse("tasks-list"))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), Task.objects.filter(user=self.user2).count())
+
+        # Check if time_spent is in response
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(reverse("tasks-list"))
+        self.assertContains(response, "time_spent")
+
+        # Check if time_spent is calculated correctly
+        task3_log_set = Task.objects.get(id=3).timelog_set
+        task3_time_spent = timezone.timedelta()
+        for time_log in task3_log_set.all():
+            task3_time_spent += time_log.duration
+        
+        self.assertEqual(response.data[2]["time_spent"].total_seconds(), task3_time_spent.total_seconds())
+
+        # Check if time_spent is calculated correctly for task without timelogs
+        self.assertEqual(response.data[1]["time_spent"].total_seconds(), timezone.timedelta().total_seconds())
+
+
 
     def test_get_all_task(self) -> None:
         self.client.force_authenticate(user=self.user)
@@ -262,7 +286,9 @@ class TestTimeLog(APITestCase):
         response = self.client.patch(reverse("tasks-start-timer", args=[1]))
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
+
     def test_stop_timer(self) -> None:
+
         task = Task.objects.get(id=5)
         TimeLog.objects.create(task=task, start_time=timezone.now() - timezone.timedelta(hours=1))
 
@@ -284,7 +310,7 @@ class TestTimeLog(APITestCase):
         response = self.client.patch(reverse("tasks-stop-timer", args=[1]))
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
-    def create_time_log(self) -> None:
+    def test_create_time_log(self) -> None:
         task = Task.objects.get(id=1)
         self.client.force_authenticate(user=self.user)
 
@@ -328,12 +354,11 @@ class TestTimeLog(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
-    def get_time_logs(self) -> None:
+    def test_get_time_logs(self) -> None:
         task = Task.objects.get(id=1)
         self.client.force_authenticate(user=self.user)
 
         response = self.client.get(reverse("tasks-timer-logs", args=[task.id]))
-        print(response.status_code)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), task.timelog_set.count())
 
@@ -342,5 +367,41 @@ class TestTimeLog(APITestCase):
 
         response = self.client.get(reverse("tasks-timer-logs", args=[task.id]))
 
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-        self.assertEqual(True, False)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_get_time_logs_month(self) -> None:
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.get(reverse("timelogs-last-month"))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertContains(response, "month_time_spent")
+        self.assertEqual(response.data["month_time_spent"].total_seconds(), timezone.timedelta(hours=2, minutes=30).total_seconds())
+
+    def test_get_top_logs(self) -> None:
+        self.client.force_authenticate(user=self.user)
+
+        # get top 2 logs
+        response = self.client.get(reverse("timelogs-top"), {"limit": 2})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 2)
+        self.assertEqual(response.data[0]["id"], 5)
+        
+        duration = datetime.datetime.strptime(response.data[0]["duration"], "%H:%M:%S")
+        top_duration = timezone.timedelta(hours=duration.hour, minutes=duration.minute, seconds=duration.second)
+        self.assertEqual(top_duration.total_seconds(), timezone.timedelta(minutes=45).total_seconds())
+
+        # get default limit of 20, but there are only 6 logs, 1 of them with no duration
+
+        response = self.client.get(reverse("timelogs-top"))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 5)
+
+        # get top logs for user that does not have any logs
+        self.client.force_authenticate(user=self.user2)
+
+        response = self.client.get(reverse("timelogs-top"))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 0)
+
+
+

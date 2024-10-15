@@ -18,6 +18,7 @@ from apps.tasks.serializers import (
     CommentSerializer,
     EmptySerializer,
     TimeLogSerializer,
+    TimeLogTopSerializer,
 )
 
 # Create your views here.
@@ -41,11 +42,14 @@ class TaskViewSet(ModelViewSet):
 
         page = self.paginate_queryset(queryset)
         if page is not None:
-            serializer = self.get_serializer(page, many=True)
+            serializer = self.get_serializer(
+                page,
+                many=True,
+            )
             return self.get_paginated_response(serializer.data)
 
         serializer = self.get_serializer(queryset, many=True)
-        query_data = [{"id": instance.id, "title": instance.title} for instance in queryset]
+        query_data = [{"id": task.id, "title": task.title, "time_spent": task.time_spent} for task in queryset]
 
         return Response(query_data)
 
@@ -177,7 +181,6 @@ class TaskViewSet(ModelViewSet):
         task = Task.objects.get(id=kwargs["pk"])
         time_logs = task.get_time_logs()
         serializer = self.get_serializer(time_logs, many=True)
-        response_data = [{"id": time_log.id, **serializer.data} for time_log in time_logs]
         return Response(serializer.data)
 
 
@@ -214,8 +217,36 @@ class TaskTimeLogViewSet(mixins.CreateModelMixin, GenericViewSet):
     serializer_class = TimeLogSerializer
 
     def create(self, request, *args, **kwargs):
-        response = super().create(request, *args, **kwargs)
+        log_user = Task.objects.get(id=request.data["task"]).user
+
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        if log_user != request.user:
+            return Response({"message": "You are not authorized to log time for this task"}, status=403)
+
+        time_log = serializer.save()
+        headers = self.get_success_headers(serializer.data)
+
         return Response(
-            {"message": "Time Log successfully created", "time_log_id": response.data["id"]},
+            {"message": "Time Log successfully created", "time_log_id": time_log.id},
+            headers=headers,
             status=status.HTTP_201_CREATED,
         )
+
+    @action(detail=False, methods=["GET"], url_path="last-month", url_name="last-month")
+    def last_month_logs(self, request, *args, **kwargs):
+        user = request.user
+        month_time_spent = TimeLog.user_time_last_month(user)
+        return Response({"month_time_spent": month_time_spent})
+
+    @action(detail=False, methods=["GET"], url_path="top", url_name="top", serializer_class=TimeLogTopSerializer)
+    def top_logs(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+
+        limit = serializer.validated_data.get("limit")
+        top_logs = TimeLog.user_top_logs(request.user, limit)
+
+        response_serializer = TimeLogSerializer(top_logs, many=True)
+        return Response(response_serializer.data)

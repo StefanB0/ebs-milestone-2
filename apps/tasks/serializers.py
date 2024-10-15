@@ -4,9 +4,12 @@ from apps.tasks.models import Task, Comment, TimeLog
 
 
 class TaskSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(source="pk", read_only=True)
+    time_spend = serializers.DurationField(source="time_spent", read_only=True)
+
     class Meta:
         model = Task
-        fields = ["title", "description", "is_completed", "user"]
+        fields = ["id", "title", "description", "is_completed", "user", "time_spend"]
 
 
 class TaskCreateSerializer(serializers.ModelSerializer):
@@ -33,9 +36,15 @@ class CommentSerializer(serializers.ModelSerializer):
 
 
 class TimeLogSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(source="pk", read_only=True)
+
     class Meta:
         model = TimeLog
-        fields = ("task", "start_time", "duration")
+        fields = ("id", "task", "start_time", "duration")
+
+
+class TimeLogTopSerializer(serializers.Serializer):
+    limit = serializers.IntegerField(default=20, min_value=1, required=False)
 
 
 class EmptySerializer(serializers.Serializer):
