@@ -8,7 +8,7 @@
             "last_name": "user1",
             "username": "user1",
             "is_superuser": false,
-            "password": "testpassword",
+            "password": "pbkdf2_sha256$870000$Wi4wANKdPDXZgk5q6AgMjc$nv+62oWfMixkILaCIiWs5DMoLCZNVVchjtq1dTAVPgY=",
             "is_staff": false
         }
     },
@@ -21,7 +21,7 @@
             "last_name": "Smith",
             "username": "alice.smith",
             "is_superuser": false,
-            "password": "G7$kLp9&zX4r",
+            "password": "pbkdf2_sha256$870000$hcusO5tBQYwZH8YaOWKkKI$pjVTwjYOlAhJV6m01Olcs2kzpoXYTPyvpls2Ss1n9yY=",
             "is_staff": false
         }
     },
@@ -34,7 +34,7 @@
             "last_name": "Johnson",
             "username": "bob.johnson",
             "is_superuser": false,
-            "password": "T!5vJq8*Fw3N",
+            "password": "pbkdf2_sha256$870000$1Sc3NfmeTz115byW45yBsK$fci4xV9aNQ8Gto4XD5ZZQCPC0M6Ug+V3HBRKrRq5Gbo=",
             "is_staff": false
         }
     },
@@ -47,7 +47,7 @@
             "last_name": "Davis",
             "username": "cathy.davis",
             "is_superuser": false,
-            "password": "B#2mQr7@Dk1Z",
+            "password": "pbkdf2_sha256$870000$8P2JG4EIepZ76FCEwMGagB$kcvqjjzmSA5MVLNFrI9WOltnBnyYstQOucOWkt0ol8k=",
             "is_staff": false
         }
     },
@@ -60,7 +60,7 @@
             "last_name": "admin2",
             "username": "admin2",
             "is_superuser": true,
-            "password": "adminpassword",
+            "password": "pbkdf2_sha256$870000$00jLUlBZJLj2N6oLuwCYhi$jGYHMVkysq6jKkhPstmNF935zeTG5JAmsrBe8pXEI9o=",
             "is_staff": true
         }
     },
@@ -72,6 +72,7 @@
             "first_name": "first_name1",
             "last_name": "last_name1",
             "username": "username1",
+            "password": "pbkdf2_sha256$870000$qPVov2ImovJrGtzwQC5I57$3xG0fHWRVfnvvPjHu8Om01cJTznyNymp3VfDCKLd/TI=",
             "is_superuser": false,
             "is_staff": false
         }

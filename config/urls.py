@@ -25,7 +25,7 @@ from apps.users.views import UserViewSet
 from apps.tasks.views import TaskViewSet, CommentViewSet, TaskTimeLogViewSet
 
 router = SimpleRouter()
-router.register("users/users", UserViewSet)
+router.register("users", UserViewSet, basename="users")
 router.register("tasks", TaskViewSet, basename="tasks")
 router.register("comments", CommentViewSet, basename="comments")
 router.register("timelogs", TaskTimeLogViewSet, basename="timelogs")
@@ -33,7 +33,6 @@ router.register("timelogs", TaskTimeLogViewSet, basename="timelogs")
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("common/", include("apps.common.urls")),
-    path("users/", include("apps.users.urls")),
 ]
 
 urlpatterns += router.urls
