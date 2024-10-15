@@ -59,10 +59,16 @@ class TestTasks(APITestCase):
         for time_log in task3_log_set.all():
             task3_time_spent += time_log.duration
 
-        self.assertEqual(response.data[2]["time_spent"].total_seconds(), task3_time_spent.total_seconds())
+        r_time = response.data[2]["time_spent"]
+        r_time = datetime.datetime.strptime(r_time, "%H:%M:%S")
+        r_time = timezone.timedelta(hours=r_time.hour, minutes=r_time.minute, seconds=r_time.second)
+        self.assertEqual(r_time.total_seconds(), task3_time_spent.total_seconds())
 
         # Check if time_spent is calculated correctly for task without timelogs
-        self.assertEqual(response.data[1]["time_spent"].total_seconds(), timezone.timedelta().total_seconds())
+        r_time = response.data[1]["time_spent"]
+        r_time = datetime.datetime.strptime(r_time, "%H:%M:%S")
+        r_time = timezone.timedelta(hours=r_time.hour, minutes=r_time.minute, seconds=r_time.second)
+        self.assertEqual(r_time.total_seconds(), timezone.timedelta().total_seconds())
 
     def test_get_all_task(self) -> None:
         self.client.force_authenticate(user=self.user)
@@ -338,7 +344,7 @@ class TestTimeLog(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
         # create timelog when another timelog is running
-
+        self.client.force_authenticate(user=self.user)
         response = self.client.post(
             reverse("timelogs-list"),
             {
@@ -348,6 +354,31 @@ class TestTimeLog(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+        # create timelog with overlapping time
+        response = self.client.post(
+            reverse("timelogs-list"),
+            {
+                "task": task.id,
+                "start_time": timezone.now() - timezone.timedelta(hours=3),
+                "duration": timezone.timedelta(minutes=45),
+            },
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+
+        response = self.client.post(
+            reverse("timelogs-list"),
+            {
+                "task": task.id,
+                "start_time": timezone.now() - timezone.timedelta(hours=2, minutes=30),
+                "duration": timezone.timedelta(minutes=45),
+            },
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
 
     def test_get_time_logs(self) -> None:
         task = Task.objects.get(id=1)

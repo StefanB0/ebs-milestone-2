@@ -31,6 +31,21 @@ class TestUsers(TestCase):
         self.assertEqual(new_user.email, "username2@example.mail.com")
         self.assertTrue(new_user.check_password("testpwd2"))
 
+        # register with existing email
+
+        response = self.client.post(
+            reverse("users-register"),
+            {
+                "first_name": "firstname2",
+                "last_name": "lastname2",
+                "email": "username2@example.mail.com",
+                "username": "username2",
+                "password": "testpwd2",
+            },
+        )
+
+        self.assertEqual(response.status_code, 400)
+
     def test_login(self) -> None:
         response = self.client.post(
             reverse("users-login"),
@@ -42,6 +57,38 @@ class TestUsers(TestCase):
 
         self.assertContains(response, "access", status_code=200, msg_prefix="Login failed:" + str(response.data))
         self.assertContains(response, "refresh", status_code=200)
+
+        # login not existing user
+        response = self.client.post(
+            reverse("users-login"),
+            {
+                "email": "notfound@mailmail.com",
+                "password": "testpassword",
+            },
+        )
+
+        self.assertEqual(response.status_code, 400)
+
+        # login with wrong password
+        response = self.client.post(
+            reverse("users-login"),
+            {
+                "email": "user1@email.com",
+                "password": "wrongpassword",
+            },
+        )
+
+        self.assertEqual(response.status_code, 400)
+
+        #log in with empty email
+        response = self.client.post(
+            reverse("users-login"),
+            {
+                "password": "testpassword",
+            },
+        )
+
+        self.assertEqual(response.status_code, 400)
 
     def test_refresh_token(self) -> None:
         self.client.force_authenticate(user=self.test_user1)

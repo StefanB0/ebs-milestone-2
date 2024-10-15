@@ -10,7 +10,7 @@ from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework import status
 
 
-from apps.users.serializers import UserSerializer, UserRegisterSerializer
+from apps.users.serializers import UserSerializer, UserRegisterSerializer, UserLoginSerializer
 
 
 class UserViewSet(RetrieveModelMixin, ListModelMixin, GenericViewSet):
@@ -78,6 +78,7 @@ class UserViewSet(RetrieveModelMixin, ListModelMixin, GenericViewSet):
         methods=["POST"],
         url_path="login",
         url_name="login",
+        serializer_class=UserLoginSerializer,
         authentication_classes=[],
         permission_classes=[AllowAny],
     )
@@ -107,9 +108,9 @@ class UserViewSet(RetrieveModelMixin, ListModelMixin, GenericViewSet):
     def refresh(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
 
-        try:
+        try: # pragma: no cover # django rest framework
             serializer.is_valid(raise_exception=True)
-        except TokenError as e:
+        except TokenError as e: # pragma: no cover # django rest framework
             raise InvalidToken(e.args[0])
 
         return Response(serializer.validated_data)

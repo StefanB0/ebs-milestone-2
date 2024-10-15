@@ -27,3 +27,11 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.ruff]
 line-length = 120
+
+[tool.coverage.run]
+omit = [
+    # omit django default files
+    "config/*",
+    "apps/common/*",
+    "manage.py",
+    ]

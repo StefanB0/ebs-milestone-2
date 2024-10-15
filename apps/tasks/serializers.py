@@ -5,12 +5,19 @@ from apps.tasks.models import Task, Comment, TimeLog
 
 class TaskSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(source="pk", read_only=True)
-    time_spend = serializers.DurationField(source="time_spent", read_only=True)
+    time_spent = serializers.DurationField(read_only=True)
 
     class Meta:
         model = Task
-        fields = ["id", "title", "description", "is_completed", "user", "time_spend"]
+        fields = ["id", "title", "description", "is_completed", "user", "time_spent"]
+        extra_kwargs = {"user": {"default": serializers.CurrentUserDefault(), "read_only": True}}
 
+class TaskPreviewSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(source="pk", read_only=True)
+    time_spent = serializers.DurationField(read_only=True)
+    class Meta:
+        model = Task
+        fields = ["id", "title", "time_spent"]
 
 class TaskCreateSerializer(serializers.ModelSerializer):
     class Meta:

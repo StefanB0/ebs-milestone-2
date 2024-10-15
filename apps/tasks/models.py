@@ -10,7 +10,7 @@ class Task(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     is_completed = models.BooleanField()
 
-    def __str__(self) -> str:
+    def __str__(self) -> str: # pragma: no cover # Debug
         return self.title
 
     @property
@@ -18,9 +18,6 @@ class Task(models.Model):
         time_logs = self.get_time_logs().exclude(duration=None)
         time_spent = sum([time_log.duration for time_log in time_logs], timezone.timedelta())
         return time_spent
-
-    def get_comments(self):
-        return Comment.objects.filter(task=self)
 
     def get_time_logs(self):
         return TimeLog.objects.filter(task=self)
@@ -31,7 +28,7 @@ class Comment(models.Model):
     task = models.ForeignKey(Task, on_delete=models.CASCADE)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
 
-    def __str__(self) -> str:
+    def __str__(self) -> str: # pragma: no cover # Debug
         return self.task.title + ": " + self.user.username + ": " + self.body
 
 
@@ -40,7 +37,7 @@ class TimeLog(models.Model):
     start_time = models.DateTimeField()
     duration = models.DurationField(blank=True, null=True)
 
-    def __str__(self) -> str:
+    def __str__(self) -> str: # pragma: no cover # Debug
         return (
             "id="
             + str(self.id)
@@ -52,17 +49,17 @@ class TimeLog(models.Model):
             + str(self.duration)
         )
 
-    @property
-    def end_time(self):
-        if self.duration is not None:
-            return self.start_time + self.duration
-        return None
+    # @property
+    # def end_time(self):
+    #     if self.duration is not None:
+    #         return self.start_time + self.duration
+    #     return None
 
     def save(self, *args, **kwargs):
         for time_log in TimeLog.objects.filter(task=self.task).exclude(id=self.id):
             if time_log.duration is None:
                 raise Exception("Task timer is already running")
-            if time_log.start_time < self.start_time and self.start_time < time_log.end_time:
+            if time_log.start_time < self.start_time and self.start_time < time_log.start_time + time_log.duration:
                 raise Exception("TimeLog overlaps with another TimeLog")
 
         super().save(*args, **kwargs)

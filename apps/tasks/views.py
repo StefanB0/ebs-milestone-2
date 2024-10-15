@@ -12,6 +12,7 @@ from django.core.mail import send_mail
 from apps.tasks.models import Task, Comment, TimeLog
 from apps.tasks.serializers import (
     TaskSerializer,
+    TaskPreviewSerializer,
     TaskCreateSerializer,
     TaskUpdateSerializer,
     TaskSearchSerializer,
@@ -30,7 +31,7 @@ class TaskViewSet(ModelViewSet):
     queryset = Task.objects.all()
 
     def create(self, request, *args, **kwargs):
-        serializer = TaskCreateSerializer(data=request.data)
+        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         serializer.save(user=self.request.user)
         headers = self.get_success_headers(serializer.data)
@@ -41,17 +42,17 @@ class TaskViewSet(ModelViewSet):
         queryset = Task.objects.filter(user=request.user)
 
         page = self.paginate_queryset(queryset)
-        if page is not None:
+        if page is not None: # pragma: no cover # super override
             serializer = self.get_serializer(
                 page,
                 many=True,
             )
             return self.get_paginated_response(serializer.data)
 
-        serializer = self.get_serializer(queryset, many=True)
-        query_data = [{"id": task.id, "title": task.title, "time_spent": task.time_spent} for task in queryset]
+        serializer = TaskPreviewSerializer(queryset, many=True)
+        # response_data = [{"id": task.id, "title": task.title, "time_spent": task.time_spent} for task in queryset]
 
-        return Response(query_data)
+        return Response(serializer.data)
 
         ###
         # s_list = super().list(request, *args, **kwargs)
@@ -63,9 +64,10 @@ class TaskViewSet(ModelViewSet):
         s_retrieve = super().retrieve(request, *args, **kwargs)
         task = Task.objects.get(id=kwargs["pk"])
 
-        retrieve_data = {"id": task.id, **s_retrieve.data}
+        response_data = {"id": task.id, **s_retrieve.data}
+        
 
-        return Response(retrieve_data)
+        return Response(response_data)
 
     @action(detail=False, methods=["GET"], url_path="all", url_name="all-tasks")
     def all_tasks(self, request, *args, **kwargs):
@@ -188,9 +190,9 @@ class CommentViewSet(mixins.CreateModelMixin, GenericViewSet):
     permission_classes = [IsAuthenticated]
     serializer_class = CommentSerializer
 
-    def get_queryset(self):
-        user = self.request.user
-        return Comment.objects.filter(task__user=user)
+    # def get_queryset(self):
+    #     user = self.request.user
+    #     return Comment.objects.filter(task__user=user)
 
     def create(self, request, *args, **kwargs):
         data = request.data.copy()
@@ -225,7 +227,11 @@ class TaskTimeLogViewSet(mixins.CreateModelMixin, GenericViewSet):
         if log_user != request.user:
             return Response({"message": "You are not authorized to log time for this task"}, status=403)
 
-        time_log = serializer.save()
+        try:
+            time_log = serializer.save()
+        except Exception as e:
+            return Response({"message": "Wrong email or password"}, status=403)
+
         headers = self.get_success_headers(serializer.data)
 
         return Response(

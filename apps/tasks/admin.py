@@ -25,6 +25,6 @@ class CommentAdmin(admin.ModelAdmin):
 
 @admin.register(TimeLog)
 class TimeLogAdmin(admin.ModelAdmin):
-    list_display = ["task", "start_time", "end_time", "duration"]
+    list_display = ["task", "start_time", "duration"]
     search_fields = ["task"]
     list_filter = ["task"]
