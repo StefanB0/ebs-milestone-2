@@ -77,8 +77,7 @@ class TestTasks(APITestCase):
         self.client.force_authenticate(user=self.user)
         response = self.client.get(reverse("tasks-detail", args=[1]))
 
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertContains(response, "id")
+        self.assertContains(response, "id", status_code=200)
         self.assertContains(response, "title")
         self.assertContains(response, "description")
         self.assertContains(response, "is_completed")

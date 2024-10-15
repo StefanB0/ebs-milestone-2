@@ -23,7 +23,7 @@ class TestUsers(TestCase):
                 "password": "testpwd2",
             },
         )
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 201)
 
         new_user = User.objects.get(username="username2")
         self.assertEqual(new_user.first_name, "firstname2")

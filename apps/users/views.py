@@ -10,12 +10,41 @@ from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework import status
 
 
-from apps.users.serializers import UserSerializer, UserRegisterSerializer, UserLoginSerializer
+from apps.users.serializers import UserSerializer, UserRegisterSerializer
 
 
 class UserViewSet(RetrieveModelMixin, ListModelMixin, GenericViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        fullname = f"{instance.first_name} {instance.last_name}"
+
+        response_data = {
+            "id": instance.id,
+            "username": instance.username,
+            "full name": fullname,
+            "email": instance.email,
+        }
+
+        return Response(response_data)
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        
+        response_data = []
+        for user in queryset:
+            response_data.append(
+                {
+                    "id": user.id,
+                    "username": user.username,
+                    "full name": f"{user.first_name} {user.last_name}",
+                    "email": user.email,
+                }
+            )
+
+        return Response(response_data)
 
     @action(
         detail=False,
@@ -27,7 +56,6 @@ class UserViewSet(RetrieveModelMixin, ListModelMixin, GenericViewSet):
         permission_classes=[AllowAny],
     )
     def register(self, request, *args, **kwargs):
-        #  Validate data
         serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
         serializer.save()
@@ -38,36 +66,34 @@ class UserViewSet(RetrieveModelMixin, ListModelMixin, GenericViewSet):
 
         refresh = RefreshToken.for_user(user)
 
-        return Response(
-            {
-                "refresh": str(refresh),
-                "access": str(refresh.access_token),
-            }
-        )
+        response_data = {
+            "refresh": str(refresh),
+            "access": str(refresh.access_token),
+        }
+
+        return Response(response_data, status=status.HTTP_201_CREATED)
 
     @action(
         detail=False,
         methods=["POST"],
         url_path="login",
         url_name="login",
-        serializer_class=UserLoginSerializer,
         authentication_classes=[],
         permission_classes=[AllowAny],
     )
     def login(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
+        serializer = self.get_serializer(data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
 
         user = serializer.validated_data["user"]
         refresh = RefreshToken.for_user(user)
 
-        return Response(
-            {
-                "refresh": str(refresh),
-                "access": str(refresh.access_token),
-            },
-            status=status.HTTP_200_OK,
-        )
+        response_data = {
+            "refresh": str(refresh),
+            "access": str(refresh.access_token),
+        }
+
+        return Response(response_data)
 
     @action(
         detail=False,
@@ -86,4 +112,4 @@ class UserViewSet(RetrieveModelMixin, ListModelMixin, GenericViewSet):
         except TokenError as e:
             raise InvalidToken(e.args[0])
 
-        return Response(serializer.validated_data, status=status.HTTP_200_OK)
+        return Response(serializer.validated_data)

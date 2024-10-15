@@ -30,6 +30,8 @@ class TaskUpdateSerializer(serializers.ModelSerializer):
 
 
 class CommentSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(source="pk", read_only=True)
+
     class Meta:
         model = Comment
         fields = "__all__"
