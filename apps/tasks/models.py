@@ -17,7 +17,8 @@ class Task(models.Model):
     @property
     def time_spent(self):
         time_logs = self.get_time_logs().exclude(duration=None)
-        time_spent = sum([time_log.duration for time_log in time_logs], timezone.timedelta())
+        # time_spent = sum([time_log.duration for time_log in time_logs], timezone.timedelta())
+        time_spent = time_logs.aggregate(Sum('duration'))['duration__sum']
         return time_spent
 
     def get_time_logs(self):

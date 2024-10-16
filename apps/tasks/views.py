@@ -166,8 +166,8 @@ class TaskViewSet(ModelViewSet):
             time_log.stop()
         except Exception as e:
             return Response({"message": str(e)}, status=403)
-        time_spent = task.time_spent.total_seconds()
-        return Response({"message": "Timer stopped", "time spent on task": task.time_spent.total_seconds()}, status=200)
+        serializer = TaskSerializer(task)
+        return Response({"message": "Timer stopped", "time spent on task": serializer.data["time_spent"]}, status=200)
 
     @action(detail=True, methods=["GET"], url_path="timer-logs", serializer_class=TimeLogSerializer)
     def timer_logs(self, request, *args, **kwargs):
