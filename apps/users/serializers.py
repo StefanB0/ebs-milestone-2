@@ -19,6 +19,7 @@ class UserSerializer(serializers.ModelSerializer):
             "password",
         )
 
+
 class UserRegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
 
@@ -36,6 +37,7 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         if User.objects.filter(email=value).exists():
             raise serializers.ValidationError("This email is already in use.")
         return value
+
 
 class UserLoginSerializer(serializers.Serializer):
     email = serializers.EmailField()

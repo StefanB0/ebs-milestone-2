@@ -32,7 +32,7 @@ class UserViewSet(RetrieveModelMixin, ListModelMixin, GenericViewSet):
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
-        
+
         response_data = []
         for user in queryset:
             response_data.append(
@@ -108,9 +108,9 @@ class UserViewSet(RetrieveModelMixin, ListModelMixin, GenericViewSet):
     def refresh(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
 
-        try: # pragma: no cover # django rest framework
+        try:  # pragma: no cover # django rest framework
             serializer.is_valid(raise_exception=True)
-        except TokenError as e: # pragma: no cover # django rest framework
+        except TokenError as e:  # pragma: no cover # django rest framework
             raise InvalidToken(e.args[0])
 
         return Response(serializer.validated_data)

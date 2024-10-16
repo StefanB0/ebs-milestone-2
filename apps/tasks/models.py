@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.db.models import Sum
 
 from django.utils import timezone
 
@@ -10,7 +11,7 @@ class Task(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     is_completed = models.BooleanField()
 
-    def __str__(self) -> str: # pragma: no cover # Debug
+    def __str__(self) -> str:  # pragma: no cover # Debug
         return self.title
 
     @property
@@ -28,7 +29,7 @@ class Comment(models.Model):
     task = models.ForeignKey(Task, on_delete=models.CASCADE)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
 
-    def __str__(self) -> str: # pragma: no cover # Debug
+    def __str__(self) -> str:  # pragma: no cover # Debug
         return self.task.title + ": " + self.user.username + ": " + self.body
 
 
@@ -37,7 +38,7 @@ class TimeLog(models.Model):
     start_time = models.DateTimeField()
     duration = models.DurationField(blank=True, null=True)
 
-    def __str__(self) -> str: # pragma: no cover # Debug
+    def __str__(self) -> str:  # pragma: no cover # Debug
         return (
             "id="
             + str(self.id)
@@ -67,9 +68,11 @@ class TimeLog(models.Model):
 
     def user_time_last_month(user):
         last_month = timezone.now() - timezone.timedelta(days=30)
-        logs = TimeLog.objects.filter(task__user=user, start_time__gte=last_month, start_time__lte=timezone.now())
-        logs = logs.exclude(duration=None)
-        return sum([log.duration for log in logs], timezone.timedelta())
+        logs = (
+            TimeLog.objects.filter(task__user=user, start_time__gte=last_month, start_time__lte=timezone.now())
+            .exclude(duration=None)
+        )
+        return logs.aggregate(Sum('duration'))['duration__sum']
 
     def user_top_logs(user, limit=20):
         last_month = timezone.now() - timezone.timedelta(days=30)

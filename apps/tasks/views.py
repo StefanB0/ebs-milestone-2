@@ -13,7 +13,6 @@ from apps.tasks.models import Task, Comment, TimeLog
 from apps.tasks.serializers import (
     TaskSerializer,
     TaskPreviewSerializer,
-    TaskCreateSerializer,
     TaskUpdateSerializer,
     TaskSearchSerializer,
     CommentSerializer,
@@ -42,7 +41,7 @@ class TaskViewSet(ModelViewSet):
         queryset = Task.objects.filter(user=request.user)
 
         page = self.paginate_queryset(queryset)
-        if page is not None: # pragma: no cover # super override
+        if page is not None:  # pragma: no cover # super override
             serializer = self.get_serializer(
                 page,
                 many=True,
@@ -50,22 +49,14 @@ class TaskViewSet(ModelViewSet):
             return self.get_paginated_response(serializer.data)
 
         serializer = TaskPreviewSerializer(queryset, many=True)
-        # response_data = [{"id": task.id, "title": task.title, "time_spent": task.time_spent} for task in queryset]
 
         return Response(serializer.data)
-
-        ###
-        # s_list = super().list(request, *args, **kwargs)
-        # list_data = [{"id": task["user"], "title": task["title"]} for task in s_list.data]
-
-        # return Response(list_data)
 
     def retrieve(self, request, *args, **kwargs):
         s_retrieve = super().retrieve(request, *args, **kwargs)
         task = Task.objects.get(id=kwargs["pk"])
 
         response_data = {"id": task.id, **s_retrieve.data}
-        
 
         return Response(response_data)
 
@@ -154,7 +145,6 @@ class TaskViewSet(ModelViewSet):
     @action(detail=True, methods=["GET"], url_path="comments")
     def comments(self, request, *args, **kwargs):
         comments = Comment.objects.filter(task=kwargs["pk"])
-        # serializer = CommentSerializer(comments, many=True)
 
         response_data = [comment.body for comment in comments]
         return Response(response_data)
@@ -189,10 +179,6 @@ class TaskViewSet(ModelViewSet):
 class CommentViewSet(mixins.CreateModelMixin, GenericViewSet):
     permission_classes = [IsAuthenticated]
     serializer_class = CommentSerializer
-
-    # def get_queryset(self):
-    #     user = self.request.user
-    #     return Comment.objects.filter(task__user=user)
 
     def create(self, request, *args, **kwargs):
         data = request.data.copy()
@@ -229,7 +215,7 @@ class TaskTimeLogViewSet(mixins.CreateModelMixin, GenericViewSet):
 
         try:
             time_log = serializer.save()
-        except Exception as e:
+        except Exception:
             return Response({"message": "Wrong email or password"}, status=403)
 
         headers = self.get_success_headers(serializer.data)

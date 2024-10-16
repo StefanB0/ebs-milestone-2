@@ -378,8 +378,6 @@ class TestTimeLog(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
-
-
     def test_get_time_logs(self) -> None:
         task = Task.objects.get(id=1)
         self.client.force_authenticate(user=self.user)

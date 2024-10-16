@@ -80,7 +80,7 @@ class TestUsers(TestCase):
 
         self.assertEqual(response.status_code, 400)
 
-        #log in with empty email
+        # log in with empty email
         response = self.client.post(
             reverse("users-login"),
             {
