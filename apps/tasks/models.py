@@ -49,12 +49,6 @@ class TimeLog(models.Model):
             + str(self.duration)
         )
 
-    # @property
-    # def end_time(self):
-    #     if self.duration is not None:
-    #         return self.start_time + self.duration
-    #     return None
-
     def save(self, *args, **kwargs):
         for time_log in TimeLog.objects.filter(task=self.task).exclude(id=self.id):
             if time_log.duration is None:

@@ -1,3 +1,7 @@
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
 [tool.poetry]
 name = "ebs-milestone-2"
 version = "0.1.0"
@@ -15,15 +19,11 @@ djangorestframework = "^3.15.2"
 drf-spectacular = "^0.27.2"
 django-cors-headers = "^4.4.0"
 djangorestframework-simplejwt = "^5.3.1"
-coverage = "^7.6.3"
 
 
 [tool.poetry.group.dev.dependencies]
+coverage = "^7.6.3"
 ruff = "^0.6.9"
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
 
 [tool.ruff]
 line-length = 120
