@@ -149,7 +149,7 @@ class TaskViewSet(ModelViewSet):
         response_data = [comment.body for comment in comments]
         return Response(response_data)
 
-    @action(detail=True, methods=["PATCH"], url_path="start-timer")
+    @action(detail=True, methods=["PATCH"], url_path="start-timer", serializer_class=EmptySerializer)
     def start_timer(self, request, *args, **kwargs):
         task = Task.objects.get(id=kwargs["pk"])
         try:
@@ -158,7 +158,7 @@ class TaskViewSet(ModelViewSet):
             return Response({"message": str(e)}, status=403)
         return Response({"message": "Timer started"}, status=200)
 
-    @action(detail=True, methods=["PATCH"], url_path="stop-timer")
+    @action(detail=True, methods=["PATCH"], url_path="stop-timer", serializer_class=EmptySerializer)
     def stop_timer(self, request, *args, **kwargs):
         task = Task.objects.get(id=kwargs["pk"])
         time_log = TimeLog.objects.filter(task=task).latest("start_time")
@@ -166,7 +166,8 @@ class TaskViewSet(ModelViewSet):
             time_log.stop()
         except Exception as e:
             return Response({"message": str(e)}, status=403)
-        return Response({"message": "Timer stopped", "time spent on task": task.time_spent}, status=200)
+        time_spent = task.time_spent.total_seconds()
+        return Response({"message": "Timer stopped", "time spent on task": task.time_spent.total_seconds()}, status=200)
 
     @action(detail=True, methods=["GET"], url_path="timer-logs", serializer_class=TimeLogSerializer)
     def timer_logs(self, request, *args, **kwargs):

@@ -19,3 +19,9 @@ Run container as server
 ```sh
 docker run --rm -it -p 8000:8000 ebs-milestone-2
 ```
+
+Run docker compose
+
+```shell
+docker compose up -d --build --wait
+```

@@ -53,9 +53,15 @@ class TimeLog(models.Model):
     def save(self, *args, **kwargs):
         for time_log in TimeLog.objects.filter(task=self.task).exclude(id=self.id):
             if time_log.duration is None:
-                raise Exception("Task timer is already running")
-            if time_log.start_time < self.start_time and self.start_time < time_log.start_time + time_log.duration:
-                raise Exception("TimeLog overlaps with another TimeLog")
+                raise Exception(f"Task timer is already running. Task_id={self.task.id}:{time_log.task.id}, Target_duration={time_log.duration}")
+            if time_log.start_time < self.start_time < time_log.start_time + time_log.duration:
+                raise Exception(
+                    f"TimeLog overlaps with another TimeLog {time_log.id}."
+                    + f"Task_id={time_log.task.id}:{self.task.id},"
+                    + f"Date={time_log.start_time.date()}/{self.start_time.date()},"
+                    + f"Start={time_log.start_time.time()}/{self.start_time.time()},"
+                    + f"Duration={time_log.duration}/{self.duration}"
+                )
 
         super().save(*args, **kwargs)
 
@@ -68,11 +74,10 @@ class TimeLog(models.Model):
 
     def user_time_last_month(user):
         last_month = timezone.now() - timezone.timedelta(days=30)
-        logs = (
-            TimeLog.objects.filter(task__user=user, start_time__gte=last_month, start_time__lte=timezone.now())
-            .exclude(duration=None)
-        )
-        return logs.aggregate(Sum('duration'))['duration__sum']
+        logs = TimeLog.objects.filter(
+            task__user=user, start_time__gte=last_month, start_time__lte=timezone.now()
+        ).exclude(duration=None)
+        return logs.aggregate(Sum("duration"))["duration__sum"]
 
     def user_top_logs(user, limit=20):
         last_month = timezone.now() - timezone.timedelta(days=30)
