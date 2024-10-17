@@ -1,0 +1,112 @@
+[
+    {
+        "model": "tasks.task",
+        "pk": 1,
+        "fields": {
+            "title": "Test task 1",
+            "description": "Test description 1",
+            "user": 1,
+            "is_completed": false
+        }
+    },
+    {
+        "model": "tasks.task",
+        "pk": 2,
+        "fields": {
+            "title": "Buy groceries",
+            "description": "Pick up groceries for the week, including fruits, vegetables, and snacks.",
+            "user": 1,
+            "is_completed": true
+        }
+    },
+    {
+        "model": "tasks.task",
+        "pk": 3,
+        "fields": {
+            "title": "Schedule dentist appointment",
+            "description": "Call the dentist office to schedule a check-up for next month.",
+            "user": 1,
+            "is_completed": false
+        }
+    },
+    {
+        "model": "tasks.task",
+        "pk": 4,
+        "fields": {
+            "title": "Finish reading the book",
+            "description": "Read the last few chapters of 'The Great Gatsby' and write a review.",
+            "user": 1,
+            "is_completed": false
+        }
+    },
+    {
+        "model": "tasks.task",
+        "pk": 5,
+        "fields": {
+            "title": "Prepare for the presentation",
+            "description": "Gather materials and practice the presentation for the team meeting.",
+            "user": 1,
+            "is_completed": true
+        }
+    },
+    {
+        "model": "tasks.task",
+        "pk": 6,
+        "fields": {
+            "title": "Walk the dog",
+            "description": "Take Max for a long walk in the park after dinner.",
+            "user": 2,
+            "is_completed": false
+        }
+    },
+    {
+        "model": "tasks.task",
+        "pk": 7,
+        "fields": {
+            "title": "Update resume",
+            "description": "Revise the resume with recent work experience and skills.",
+            "user": 2,
+            "is_completed": true
+        }
+    },
+    {
+        "model": "tasks.task",
+        "pk": 8,
+        "fields": {
+            "title": "Research vacation destinations",
+            "description": "Look into potential vacation spots for the summer trip.",
+            "user": 2,
+            "is_completed": false
+        }
+    },
+    {
+        "model": "tasks.task",
+        "pk": 9,
+        "fields": {
+            "title": "Attend yoga class",
+            "description": "Join the evening yoga class at the community center.",
+            "user": 3,
+            "is_completed": true
+        }
+    },
+    {
+        "model": "tasks.task",
+        "pk": 10,
+        "fields": {
+            "title": "Clean the garage",
+            "description": "Organize and declutter the garage space this weekend.",
+            "user": 3,
+            "is_completed": false
+        }
+    },
+    {
+        "model": "tasks.task",
+        "pk": 11,
+        "fields": {
+            "title": "Finish project outline",
+            "description": "Draft an outline for the upcoming project proposal.",
+            "user": 4,
+            "is_completed": false
+        }
+    }
+]

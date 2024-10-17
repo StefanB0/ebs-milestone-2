@@ -32,7 +32,8 @@ ENV DJANGO_SUPERUSER_EMAIL=admin@admin.com
 
 ENTRYPOINT bash -c " \
   python manage.py migrate --noinput && \
-  python manage.py createsuperuser --noinput || true && \ 
+  python manage.py createsuperuser --noinput || true && \
+  python manage.py loaddata fixtures/*.json || true && \
   python manage.py runserver 0.0.0.0:8000"
 
 # CMD [ "python",  "manage.py", "runserver", "0.0.0.0:8000"]
