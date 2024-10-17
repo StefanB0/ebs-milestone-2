@@ -44,7 +44,8 @@ class CommentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Comment
-        fields = "__all__"
+        fields = ["id", "body", "task"]
+        extra_kwargs = {"user": {"default": serializers.CurrentUserDefault(), "read_only": True}}
 
 
 class TimeLogSerializer(serializers.ModelSerializer):

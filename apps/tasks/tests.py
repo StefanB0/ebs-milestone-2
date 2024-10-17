@@ -69,7 +69,9 @@ class TestTasks(APITestCase):
 
         # Check if time_spent is calculated correctly for task without timelogs
         r_time = response.data[1]["time_spent"]
-        self.assertEqual(r_time, None)
+        r_time = datetime.datetime.strptime(r_time, "%H:%M:%S")
+        r_time = timezone.timedelta(hours=r_time.hour, minutes=r_time.minute, seconds=r_time.second)
+        self.assertEqual(r_time, timezone.timedelta())
 
     def test_get_all_task(self) -> None:
         self.client.force_authenticate(user=self.user)
@@ -391,6 +393,11 @@ class TestTimeLog(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), task.timelog_set.count())
 
+        # get timelogs for task that does not have any timelogs
+        task = Task.objects.get(id=2)
+        response = self.client.get(reverse("tasks-timer-logs", args=[task.id]))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
         # get timelogs for task that does not belong to user
         self.client.force_authenticate(user=self.user2)
 
@@ -436,12 +443,13 @@ class TestTimeLog(APITestCase):
 
         # test caching
         self.client.force_authenticate(user=self.user)
+
+        # first request
         response1 = self.client.get(reverse("timelogs-top"))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response1.data), 5)
+        # second request
         response2 = self.client.get(reverse("timelogs-top"))
         TimeLog.objects.all().delete()
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response2.data), 5)
-
-

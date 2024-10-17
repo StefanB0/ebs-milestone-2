@@ -1,11 +1,9 @@
+import math
 import logging
 
 from django.utils import timezone
 from django.core.mail import send_mail
 from django.core.cache import cache
-from django.utils.decorators import method_decorator
-from django.views.decorators.cache import cache_page
-from django.views.decorators.vary import vary_on_headers, vary_on_cookie
 
 from rest_framework.viewsets import ModelViewSet, GenericViewSet
 from rest_framework.permissions import IsAuthenticated
@@ -27,6 +25,8 @@ from apps.tasks.serializers import (
 )
 
 logger = logging.getLogger("django")
+
+
 class TaskViewSet(ModelViewSet):
     serializer_class = TaskSerializer
     permission_classes = [IsAuthenticated]
@@ -176,6 +176,13 @@ class TaskViewSet(ModelViewSet):
     def timer_logs(self, request, *args, **kwargs):
         task = Task.objects.get(id=kwargs["pk"])
         time_logs = task.get_time_logs()
+        for log in time_logs:
+            if log.duration is None:
+                log.duration = timezone.timedelta()
+            else:
+                duration_rounded = math.floor(log.duration.total_seconds())
+                log.duration = timezone.timedelta(seconds=duration_rounded)
+
         serializer = self.get_serializer(time_logs, many=True)
         return Response(serializer.data)
 
@@ -185,9 +192,7 @@ class CommentViewSet(mixins.CreateModelMixin, GenericViewSet):
     serializer_class = CommentSerializer
 
     def create(self, request, *args, **kwargs):
-        data = request.data.copy()
-        data["user"] = request.user.id
-        serializer = self.get_serializer(data=data)
+        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         task = serializer.validated_data["task"]
@@ -199,7 +204,7 @@ class CommentViewSet(mixins.CreateModelMixin, GenericViewSet):
             fail_silently=False,
         )
 
-        self.perform_create(serializer)
+        serializer.save(user=request.user)
         headers = self.get_success_headers(serializer.data)
         return Response({"comment_id": serializer.data["id"]}, status=status.HTTP_201_CREATED, headers=headers)
 
@@ -236,8 +241,6 @@ class TaskTimeLogViewSet(mixins.CreateModelMixin, GenericViewSet):
         month_time_spent = TimeLog.user_time_last_month(user)
         return Response({"month_time_spent": month_time_spent})
 
-    # @method_decorator(cache_page(60))
-    # @method_decorator(vary_on_cookie)
     @action(detail=False, methods=["GET"], url_path="top", url_name="top", serializer_class=TimeLogTopSerializer)
     def top_logs(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.query_params)

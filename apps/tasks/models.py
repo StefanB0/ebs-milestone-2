@@ -1,4 +1,5 @@
 import logging
+import math
 
 from django.db import models
 from django.db.models import Sum
@@ -7,6 +8,7 @@ from django.contrib.auth.models import User
 from django.utils import timezone
 
 logger = logging.getLogger("django")
+
 
 class Task(models.Model):
     title = models.CharField(max_length=255)
@@ -20,9 +22,12 @@ class Task(models.Model):
     @property
     def time_spent(self):
         time_logs = self.get_time_logs().exclude(duration=None)
-        # time_spent = sum([time_log.duration for time_log in time_logs], timezone.timedelta())
-        time_spent = time_logs.aggregate(Sum('duration'))['duration__sum']
-        return time_spent
+        time_spent = time_logs.aggregate(Sum("duration"))["duration__sum"]
+        if time_spent is None:
+            return timezone.timedelta()
+        seconds = math.floor(time_spent.total_seconds())
+        time_rounded = timezone.timedelta(seconds=seconds)
+        return time_rounded
 
     def get_time_logs(self):
         return TimeLog.objects.filter(task=self)
@@ -57,7 +62,9 @@ class TimeLog(models.Model):
     def save(self, *args, **kwargs):
         for time_log in TimeLog.objects.filter(task=self.task).exclude(id=self.id):
             if time_log.duration is None:
-                raise Exception(f"Task timer is already running. Task_id={self.task.id}:{time_log.task.id}, Target_duration={time_log.duration}")
+                raise Exception(
+                    f"Task timer is already running. Task_id={self.task.id}:{time_log.task.id}, Target_duration={time_log.duration}"
+                )
             if time_log.start_time < self.start_time < time_log.start_time + time_log.duration:
                 raise Exception(
                     f"TimeLog overlaps with another TimeLog {time_log.id}."
@@ -74,7 +81,8 @@ class TimeLog(models.Model):
             raise Exception("TimeLog is already stopped")
         self.duration = timezone.now() - self.start_time
         self.save()
-        return self.duration
+        duration = timezone.timedelta(seconds=self.duration.total_seconds())
+        return duration
 
     def user_time_last_month(user):
         last_month = timezone.now() - timezone.timedelta(days=30)

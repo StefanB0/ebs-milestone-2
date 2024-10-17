@@ -33,16 +33,16 @@ users, {Task.objects.count()} tasks, {Comment.objects.count()} comments, {TimeLo
     def create_users(self, user_nr) -> List[User]:
         user_list = []
         for i in range(0, user_nr):
-            ustr = "random-user" + str(i) # random-user42
+            ustr = "random-user" + str(i)  # random-user42
             if User.objects.filter(username=ustr).exists():
                 continue
 
             user = User.objects.create(
-                username=ustr, # random-user42
-                password=make_password("password" + str(i)), # password42
-                email=ustr + "@example.mail.com", # random-user42@example.mail.com
-                first_name=ustr + "first-name", # random-user42first-name
-                last_name=ustr + "last-name", # random-user42last-name
+                username=ustr,  # random-user42
+                password=make_password("password" + str(i)),  # password42
+                email=ustr + "@example.mail.com",  # random-user42@example.mail.com
+                first_name=ustr + "first-name",  # random-user42first-name
+                last_name=ustr + "last-name",  # random-user42last-name
             )
             user_list.append(user)
             self.stdout.write(self.style.SUCCESS("created user " + str(i + 1)))
@@ -89,7 +89,7 @@ users, {Task.objects.count()} tasks, {Comment.objects.count()} comments, {TimeLo
 
             try:
                 TimeLog.objects.create(task=random.choice(tasks), start_time=start_time, duration=duration)
-            except Exception as e:
+            except Exception:
                 # self.stdout.write(
                 #     self.style.ERROR("Failed to create time log " + str(time_log_nr) + " because {" + e.__str__() + "}")
                 # )
@@ -99,13 +99,7 @@ users, {Task.objects.count()} tasks, {Comment.objects.count()} comments, {TimeLo
                 counter += 1
                 if counter % 10 == 0:
                     self.stdout.write(
-                        self.style.SUCCESS(
-                            "Successfully created time logs " + str(counter - 9) + ":" + str(counter)
-                        )
+                        self.style.SUCCESS("Successfully created time logs " + str(counter - 9) + ":" + str(counter))
                     )
 
-        self.stdout.write(
-            self.style.ERROR(
-                f"Failed to make {failed_logs} time logs because of time overlap"
-            )
-        )
+        self.stdout.write(self.style.ERROR(f"Failed to make {failed_logs} time logs because of time overlap"))
