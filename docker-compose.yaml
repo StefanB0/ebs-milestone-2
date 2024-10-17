@@ -25,7 +25,6 @@ services:
       postgres -c shared_preload_libraries=pg_stat_statements
     volumes:
       - ./postgres://docker-entrypoint-initdb.d
-
   pg-hero:
     image: ankane/pghero:latest
     environment:
@@ -35,5 +34,11 @@ services:
     depends_on:
       - postgres-db
     tty: true
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./local/db-data/redis-db:/data/redis
 
 

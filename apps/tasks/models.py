@@ -1,9 +1,12 @@
+import logging
+
 from django.db import models
-from django.contrib.auth.models import User
 from django.db.models import Sum
+from django.contrib.auth.models import User
 
 from django.utils import timezone
 
+logger = logging.getLogger("django")
 
 class Task(models.Model):
     title = models.CharField(max_length=255)
@@ -80,7 +83,7 @@ class TimeLog(models.Model):
         ).exclude(duration=None)
         return logs.aggregate(Sum("duration"))["duration__sum"]
 
-    def user_top_logs(user, limit=20):
+    def user_top_logs(user: User, limit=20):
         last_month = timezone.now() - timezone.timedelta(days=30)
         logs = (
             TimeLog.objects.filter(task__user=user, start_time__gte=last_month)

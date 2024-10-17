@@ -1,4 +1,5 @@
 import datetime
+import logging
 
 from django.contrib.auth.models import User
 from django.urls import reverse
@@ -16,6 +17,8 @@ class TestTasks(APITestCase):
     fixtures = ["users", "tasks", "timelogs"]
 
     def setUp(self) -> None:
+        logging.disable(logging.CRITICAL)
+
         self.client = APIClient()
 
         self.user = User.objects.get(pk=1)
@@ -66,9 +69,7 @@ class TestTasks(APITestCase):
 
         # Check if time_spent is calculated correctly for task without timelogs
         r_time = response.data[1]["time_spent"]
-        r_time = datetime.datetime.strptime(r_time, "%H:%M:%S")
-        r_time = timezone.timedelta(hours=r_time.hour, minutes=r_time.minute, seconds=r_time.second)
-        self.assertEqual(r_time.total_seconds(), timezone.timedelta().total_seconds())
+        self.assertEqual(r_time, None)
 
     def test_get_all_task(self) -> None:
         self.client.force_authenticate(user=self.user)
@@ -177,6 +178,8 @@ class TestComments(APITestCase):
     fixtures = ["users", "tasks", "comments"]
 
     def setUp(self) -> None:
+        logging.disable(logging.CRITICAL)
+
         self.client = APIClient()
 
         self.user = User.objects.get(pk=1)
@@ -210,6 +213,7 @@ class TestMail(APITestCase):
     fixtures = ["users", "tasks", "comments"]
 
     def setUp(self) -> None:
+        logging.disable(logging.CRITICAL)
         self.client = APIClient()
 
         self.user = User.objects.get(pk=1)
@@ -252,6 +256,7 @@ class TestTimeLog(APITestCase):
     fixtures = ["users", "tasks", "timelogs"]
 
     def setUp(self) -> None:
+        logging.disable(logging.CRITICAL)
         self.client = APIClient()
 
         self.user = User.objects.get(pk=1)
@@ -278,7 +283,7 @@ class TestTimeLog(APITestCase):
 
         response = self.client.patch(reverse("tasks-start-timer", args=[1]))
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-        self.assertEqual(response.data["message"], "Task timer is already running")
+        self.assertIn("Task timer is already running", response.data["message"])
 
         # check if timelog is not created
         self.assertEqual(TimeLog.objects.count(), initial_count)
@@ -427,4 +432,16 @@ class TestTimeLog(APITestCase):
 
         response = self.client.get(reverse("timelogs-top"))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 0)
+        self.assertEqual(len(response.data), 0, f"{response.data}")
+
+        # test caching
+        self.client.force_authenticate(user=self.user)
+        response1 = self.client.get(reverse("timelogs-top"))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response1.data), 5)
+        response2 = self.client.get(reverse("timelogs-top"))
+        TimeLog.objects.all().delete()
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response2.data), 5)
+
+

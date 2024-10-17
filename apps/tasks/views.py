@@ -1,12 +1,17 @@
+import logging
+
 from django.utils import timezone
+from django.core.mail import send_mail
+from django.core.cache import cache
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
+from django.views.decorators.vary import vary_on_headers, vary_on_cookie
 
 from rest_framework.viewsets import ModelViewSet, GenericViewSet
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework import status, mixins
-
-from django.core.mail import send_mail
 
 
 from apps.tasks.models import Task, Comment, TimeLog
@@ -21,9 +26,7 @@ from apps.tasks.serializers import (
     TimeLogTopSerializer,
 )
 
-# Create your views here.
-
-
+logger = logging.getLogger("django")
 class TaskViewSet(ModelViewSet):
     serializer_class = TaskSerializer
     permission_classes = [IsAuthenticated]
@@ -233,13 +236,24 @@ class TaskTimeLogViewSet(mixins.CreateModelMixin, GenericViewSet):
         month_time_spent = TimeLog.user_time_last_month(user)
         return Response({"month_time_spent": month_time_spent})
 
+    # @method_decorator(cache_page(60))
+    # @method_decorator(vary_on_cookie)
     @action(detail=False, methods=["GET"], url_path="top", url_name="top", serializer_class=TimeLogTopSerializer)
     def top_logs(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.query_params)
         serializer.is_valid(raise_exception=True)
-
         limit = serializer.validated_data.get("limit")
-        top_logs = TimeLog.user_top_logs(request.user, limit)
 
+        top_logs = []
+        cache_str = self.request.user.username + "month-top-logs" + f":{limit}"
+        cached_logs = cache.get(cache_str)
+        if cached_logs is not None:
+            logger.debug("Used cached logs")
+            top_logs = cached_logs
+        else:
+            top_logs = TimeLog.user_top_logs(request.user, limit)
+            cache.set(cache_str, top_logs, timeout=60)
+
+        top_logs = TimeLog.user_top_logs(request.user, limit)
         response_serializer = TimeLogSerializer(top_logs, many=True)
         return Response(response_serializer.data)
