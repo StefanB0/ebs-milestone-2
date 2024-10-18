@@ -200,8 +200,9 @@ SPECTACULAR_SETTINGS = {
 
 # Email settings
 # if DEBUG:
-EMAIL_BACKEND = "django.core.mail.backends.filebased.EmailBackend"
-EMAIL_FILE_PATH = BASE_DIR / "temp/dev-email"  # change this to a proper location
+EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+# EMAIL_BACKEND = "django.core.mail.backends.filebased.EmailBackend"
+# EMAIL_FILE_PATH = BASE_DIR / "temp/dev-email"
 
 # Logging
 

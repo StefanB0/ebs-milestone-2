@@ -37,8 +37,7 @@ class TaskViewSet(ModelViewSet):
         serializer.is_valid(raise_exception=True)
         serializer.save(user=self.request.user)
         headers = self.get_success_headers(serializer.data)
-        task_id = serializer.instance.id
-        return Response({"task_id": task_id}, status=status.HTTP_201_CREATED, headers=headers)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
     def list(self, request, *args, **kwargs):
         queryset = Task.objects.filter(user=request.user)
@@ -59,33 +58,43 @@ class TaskViewSet(ModelViewSet):
         s_retrieve = super().retrieve(request, *args, **kwargs)
         task = Task.objects.get(id=kwargs["pk"])
 
-        response_data = {"id": task.id, **s_retrieve.data}
+        serializer = self.get_serializer(task)
+        return Response(serializer.data)
 
-        return Response(response_data)
+        # return Response(response_data)
 
     @action(detail=False, methods=["GET"], url_path="all", url_name="all-tasks")
     def all_tasks(self, request, *args, **kwargs):
         queryset = Task.objects.all()
-        query_data = [{"id": task.id, "title": task.title} for task in queryset]
+        serializer = TaskPreviewSerializer(queryset, many=True)
+        return Response(serializer.data)
 
-        return Response(query_data)
+    def user_tasks(self, request, *args, **kwargs):
+        user_id = self.kwargs.get("pk")
+
+        queryset = Task.objects.filter(user=user_id)
+        serializer = TaskPreviewSerializer(queryset, many=True)
+        return Response(serializer.data)
 
     @action(detail=False, methods=["GET"], url_path="completed")
     def completed_tasks(self, request, *args, **kwargs):
         queryset = Task.objects.filter(is_completed=True, user=request.user)
+        serializer = TaskPreviewSerializer(queryset, many=True)
+        return Response(serializer.data)
 
-        query_data = [{"id": task.id, "title": task.title} for task in queryset]
-
-        return Response(query_data)
+    @action(detail=False, methods=["GET"], url_path="incomplete")
+    def incomplete_tasks(self, request, *args, **kwargs):
+        queryset = Task.objects.filter(is_completed=False, user=request.user)
+        serializer = TaskPreviewSerializer(queryset, many=True)
+        return Response(serializer.data)
 
     @action(detail=False, methods=["POST"], url_path="search", serializer_class=TaskSearchSerializer)
     def search(self, request, *args, **kwargs):
         search_serializer = self.get_serializer(data=request.data)
         search_serializer.is_valid(raise_exception=True)
         queryset = Task.objects.filter(title__icontains=search_serializer.validated_data["search"])
-
-        response_data = [{"id": task.id, "title": task.title} for task in queryset]
-        return Response(response_data)
+        serializer = TaskPreviewSerializer(queryset, many=True)
+        return Response(serializer.data)
 
     @action(detail=True, methods=["PATCH"], url_path="assign", serializer_class=TaskUpdateSerializer)
     def assign_task(self, request, *args, **kwargs):

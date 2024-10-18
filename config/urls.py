@@ -33,6 +33,7 @@ router.register("timelogs", TaskTimeLogViewSet, basename="timelogs")
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("common/", include("apps.common.urls")),
+    path("tasks/", include("apps.tasks.urls")),
 ]
 
 urlpatterns += router.urls

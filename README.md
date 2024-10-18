@@ -25,3 +25,8 @@ Run docker compose
 ```shell
 docker compose up -d --build --wait
 ```
+
+Run coverage
+```shell
+coverage run --source='.' manage.py test && coverage report
+```

@@ -31,8 +31,13 @@ class TestTasks(APITestCase):
         self.client.force_authenticate(user=self.user)
         response = self.client.post(reverse("tasks-list"), self.tasks[0])
 
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertContains(response, "task_id", status_code=201)
+        self.assertContains(response, "id", status_code=201)
+        self.assertContains(response, "title", status_code=201)
+        self.assertContains(response, "description", status_code=201)
+        self.assertContains(response, "is_completed", status_code=201)
+        self.assertContains(response, "user", status_code=201)
+        self.assertContains(response, "time_spent", status_code=201)
+
 
     def test_get_tasks(self) -> None:
         self.client.force_authenticate(user=self.user)
@@ -73,6 +78,12 @@ class TestTasks(APITestCase):
         r_time = timezone.timedelta(hours=r_time.hour, minutes=r_time.minute, seconds=r_time.second)
         self.assertEqual(r_time, timezone.timedelta())
 
+    def test_get_user_tasks(self) -> None:
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(reverse("tasks-user", kwargs={"pk": 1}))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), Task.objects.filter(user=self.user).count())
+
     def test_get_all_task(self) -> None:
         self.client.force_authenticate(user=self.user)
         response = self.client.get(reverse("tasks-all-tasks"))
@@ -108,6 +119,12 @@ class TestTasks(APITestCase):
         self.assertEqual(response.data[0]["id"], completed_tasks[0].id)
         self.assertContains(response, "title")
         self.assertContains(response, "id")
+
+    def test_get_incomplete_tasks(self) -> None:
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(reverse("tasks-incomplete-tasks"))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 3)
 
     def test_search_task(self) -> None:
         self.client.force_authenticate(user=self.user)
