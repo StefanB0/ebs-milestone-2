@@ -22,7 +22,8 @@ services:
     ports:
       - "5432:5432"
     command: >
-      postgres -c shared_preload_libraries=pg_stat_statements
+      postgres -c shared_preload_libraries=pg_stat_statements;
+#      celery -A tasks worker --loglevel=INFO
     volumes:
       - ./postgres://docker-entrypoint-initdb.d
   pg-hero:
@@ -40,5 +41,16 @@ services:
       - "6379:6379"
     volumes:
       - ./local/db-data/redis-db:/data/redis
-
-
+  mailhog-mock:
+    image: mailhog/mailhog
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+  rabbitmq:
+    image: rabbitmq
+    ports:
+      - "5672:5672"  # RabbitMQ port
+      - "15672:15672"  # Management UI port
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin

@@ -8,6 +8,8 @@ from django.contrib.auth.models import User
 
 from django.utils import timezone
 
+from apps.tasks.tasks import c_send_mail
+
 logger = logging.getLogger("django")
 
 
@@ -89,13 +91,15 @@ class Task(models.Model):
         return None
 
     def notify_comment(self):
-        send_mail(
-            subject="Comment added",
-            message=f"Comment added to task [{self.title}]",
-            from_email="example@mail.com",
-            recipient_list=[self.user.email],
-            fail_silently=False,
-        )
+        result = c_send_mail.delay([self.user.email], "Comment added", f"Comment added to task [{self.title}]")
+        result.ready()
+        # send_mail(
+        #     subject="Comment added",
+        #     message=f"Comment added to task [{self.title}]",
+        #     from_email="example@mail.com",
+        #     recipient_list=[self.user.email],
+        #     fail_silently=False,
+        # )
 
 
 class Comment(models.Model):

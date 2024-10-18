@@ -226,3 +226,14 @@ LOGGING = {
         },
     },
 }
+
+# Celery settings
+
+CELERY_BROKER_URL = 'amqp://admin:admin@localhost'
+
+#: Only add pickle to this list if your broker is secured
+#: from unwanted access (see userguide/security.html)
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_RESULT_BACKEND = 'db+sqlite:///results.sqlite'
+# CELERY_RESULT_BACKEND = "redis://localhost"
+CELERY_TASK_SERIALIZER = 'json'

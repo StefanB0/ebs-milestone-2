@@ -187,8 +187,6 @@ class TaskTimeLogViewSet(mixins.CreateModelMixin, GenericViewSet):
         serializer = self.get_serializer(data=request.query_params)
         serializer.is_valid(raise_exception=True)
         limit = serializer.validated_data.get("limit")
-
-        top_logs = []
         cache_str = self.request.user.username + "month-top-logs" + f":{limit}"
         cached_logs = cache.get(cache_str)
         if cached_logs is not None:
