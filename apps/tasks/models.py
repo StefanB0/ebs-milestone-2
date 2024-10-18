@@ -1,6 +1,7 @@
 import logging
 import math
 
+from django.core.mail import send_mail
 from django.db import models
 from django.db.models import Sum
 from django.contrib.auth.models import User
@@ -23,14 +24,80 @@ class Task(models.Model):
     def time_spent(self):
         time_logs = self.get_time_logs().exclude(duration=None)
         time_spent = time_logs.aggregate(Sum("duration"))["duration__sum"]
-        if time_spent is None:
-            return timezone.timedelta()
-        seconds = math.floor(time_spent.total_seconds())
-        time_rounded = timezone.timedelta(seconds=seconds)
-        return time_rounded
+        return time_spent
 
     def get_time_logs(self):
         return TimeLog.objects.filter(task=self)
+
+    def assign_user(self, new_user):
+        if self.user == new_user:
+            return "Cannot assign same user"
+        self.user = new_user
+        self.save()
+
+        send_mail(
+            subject="Task assigned",
+            message=f"Task [{self.title}] has been assigned to you",
+            from_email="from@example.com",
+            recipient_list=[new_user.email],
+            fail_silently=False,
+        )
+        return None
+
+    def complete_task(self):
+        if self.is_completed:
+            return "Task already completed"
+
+        self.is_completed = True
+        self.save()
+
+        send_mail(
+            subject="Task completed",
+            message=f"Task [{self.title}] has been completed",
+            from_email="from@example.com",
+            recipient_list=[self.user.email],
+            fail_silently=False,
+        )
+
+        comments = Comment.objects.filter(task=self)
+        for comment in comments:
+            send_mail(
+                subject="Task completed",
+                message=f"Task [{self.title}] has been completed",
+                from_email="from@example.com",
+                recipient_list=[comment.user.email],
+                fail_silently=False,
+            )
+
+        return "Task completed successfully"
+
+    def start_timer(self):
+        try:
+            TimeLog.objects.create(task=self, start_time=timezone.now())
+        except Exception as e:
+            error = str(e)
+            return error.split(".")[0]
+        return None
+
+    def stop_timer(self):
+        time_log = TimeLog.objects.filter(task=self).latest("start_time")
+        try:
+            time_log.stop()
+        except Exception as e:
+            error = str(e)
+            return error.split(".")[0]
+        return None
+
+    def notify_comment(self):
+        send_mail(
+            subject="Comment added",
+            message=f"Comment added to task [{self.title}]",
+            from_email="example@mail.com",
+            recipient_list=[self.user.email],
+            fail_silently=False,
+        )
+
+
 
 
 class Comment(models.Model):
@@ -65,9 +132,13 @@ class TimeLog(models.Model):
                 raise Exception(
                     f"Task timer is already running. Task_id={self.task.id}:{time_log.task.id}, Target_duration={time_log.duration}"
                 )
+            if self.duration:
+                duration_rounded = math.floor(self.duration.total_seconds())
+                self.duration = timezone.timedelta(seconds=duration_rounded)
             if time_log.start_time < self.start_time < time_log.start_time + time_log.duration:
                 raise Exception(
-                    f"TimeLog overlaps with another TimeLog {time_log.id}."
+                    f"TimeLog overlaps with another timeLog."
+                    + f"Conflict_id={time_log.id}."
                     + f"Task_id={time_log.task.id}:{self.task.id},"
                     + f"Date={time_log.start_time.date()}/{self.start_time.date()},"
                     + f"Start={time_log.start_time.time()}/{self.start_time.time()},"

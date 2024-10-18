@@ -54,15 +54,6 @@ class TaskViewSet(ModelViewSet):
 
         return Response(serializer.data)
 
-    def retrieve(self, request, *args, **kwargs):
-        s_retrieve = super().retrieve(request, *args, **kwargs)
-        task = Task.objects.get(id=kwargs["pk"])
-
-        serializer = self.get_serializer(task)
-        return Response(serializer.data)
-
-        # return Response(response_data)
-
     @action(detail=False, methods=["GET"], url_path="all", url_name="all-tasks")
     def all_tasks(self, request, *args, **kwargs):
         queryset = Task.objects.all()
@@ -71,7 +62,6 @@ class TaskViewSet(ModelViewSet):
 
     def user_tasks(self, request, *args, **kwargs):
         user_id = self.kwargs.get("pk")
-
         queryset = Task.objects.filter(user=user_id)
         serializer = TaskPreviewSerializer(queryset, many=True)
         return Response(serializer.data)
@@ -99,85 +89,42 @@ class TaskViewSet(ModelViewSet):
     @action(detail=True, methods=["PATCH"], url_path="assign", serializer_class=TaskUpdateSerializer)
     def assign_task(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
-        queryset = Task.objects.all()
-
         serializer.is_valid(raise_exception=True)
         new_user = serializer.validated_data["user"]
 
-        task = queryset.get(id=kwargs["pk"])
-        old_user = task.user
-        if old_user == new_user:
-            return Response({"message": "Task assigned successfully"}, status=200)
-
-        task.user = serializer.validated_data["user"]
-        task.save()
-
-        send_mail(
-            subject="Task assigned",
-            message=f"Task [{task.title}] has been assigned to you",
-            from_email="from@example.com",
-            recipient_list=[new_user.email],
-            fail_silently=False,
-        )
-
+        task = Task.objects.get(id=kwargs["pk"])
+        err = task.assign_user(new_user)
+        if err:
+            return Response({"error": err}, status=status.HTTP_400_BAD_REQUEST)
         return Response({"message": "Task assigned successfully"})
 
     @action(detail=True, methods=["PATCH"], url_path="complete", serializer_class=EmptySerializer)
     def complete_task(self, request, *args, **kwargs):
         queryset = self.get_queryset()
-
         task = queryset.get(id=kwargs["pk"])
-
-        if task.is_completed:
-            return Response({"message": "Task completed successfully"}, status=200)
-
-        task.is_completed = True
-        task.save()
-
-        send_mail(
-            subject="Task completed",
-            message=f"Task [{task.title}] has been completed",
-            from_email="from@example.com",
-            recipient_list=[task.user.email],
-            fail_silently=False,
-        )
-
-        comments = Comment.objects.filter(task=task)
-        for comment in comments:
-            send_mail(
-                subject="Task completed",
-                message=f"Task [{task.title}] has been completed",
-                from_email="from@example.com",
-                recipient_list=[comment.user.email],
-                fail_silently=False,
-            )
-
-        return Response({"message": "Task completed successfully"})
+        response_message = task.complete_task()
+        return Response({"message": response_message})
 
     @action(detail=True, methods=["GET"], url_path="comments")
     def comments(self, request, *args, **kwargs):
         comments = Comment.objects.filter(task=kwargs["pk"])
-
         response_data = [comment.body for comment in comments]
         return Response(response_data)
 
     @action(detail=True, methods=["PATCH"], url_path="start-timer", serializer_class=EmptySerializer)
     def start_timer(self, request, *args, **kwargs):
         task = Task.objects.get(id=kwargs["pk"])
-        try:
-            TimeLog.objects.create(task=task, start_time=timezone.now())
-        except Exception as e:
-            return Response({"message": str(e)}, status=403)
-        return Response({"message": "Timer started"}, status=200)
+        err = task.start_timer()
+        if err:
+            return Response({"message": err}, status=403)
+        return Response({"message": "Task started"})
 
     @action(detail=True, methods=["PATCH"], url_path="stop-timer", serializer_class=EmptySerializer)
     def stop_timer(self, request, *args, **kwargs):
         task = Task.objects.get(id=kwargs["pk"])
-        time_log = TimeLog.objects.filter(task=task).latest("start_time")
-        try:
-            time_log.stop()
-        except Exception as e:
-            return Response({"message": str(e)}, status=403)
+        err = task.stop_timer()
+        if err:
+            return Response({"message": err}, status=403)
         serializer = TaskSerializer(task)
         return Response({"message": "Timer stopped", "time spent on task": serializer.data["time_spent"]}, status=200)
 
@@ -185,13 +132,6 @@ class TaskViewSet(ModelViewSet):
     def timer_logs(self, request, *args, **kwargs):
         task = Task.objects.get(id=kwargs["pk"])
         time_logs = task.get_time_logs()
-        for log in time_logs:
-            if log.duration is None:
-                log.duration = timezone.timedelta()
-            else:
-                duration_rounded = math.floor(log.duration.total_seconds())
-                log.duration = timezone.timedelta(seconds=duration_rounded)
-
         serializer = self.get_serializer(time_logs, many=True)
         return Response(serializer.data)
 
@@ -205,13 +145,7 @@ class CommentViewSet(mixins.CreateModelMixin, GenericViewSet):
         serializer.is_valid(raise_exception=True)
 
         task = serializer.validated_data["task"]
-        send_mail(
-            subject="Comment added",
-            message=f"Comment added to task [{task.title}]",
-            from_email="example@mail.com",
-            recipient_list=[task.user.email],
-            fail_silently=False,
-        )
+        task.notify_comment()
 
         serializer.save(user=request.user)
         headers = self.get_success_headers(serializer.data)
@@ -233,8 +167,9 @@ class TaskTimeLogViewSet(mixins.CreateModelMixin, GenericViewSet):
 
         try:
             time_log = serializer.save()
-        except Exception:
-            return Response({"message": "Wrong email or password"}, status=403)
+        except Exception as e:
+            error_message = str(e).split(".")[0]
+            return Response({"message": error_message}, status=403)
 
         headers = self.get_success_headers(serializer.data)
 

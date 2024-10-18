@@ -74,9 +74,9 @@ class TestTasks(APITestCase):
 
         # Check if time_spent is calculated correctly for task without timelogs
         r_time = response.data[1]["time_spent"]
-        r_time = datetime.datetime.strptime(r_time, "%H:%M:%S")
-        r_time = timezone.timedelta(hours=r_time.hour, minutes=r_time.minute, seconds=r_time.second)
-        self.assertEqual(r_time, timezone.timedelta())
+        # r_time = datetime.datetime.strptime(r_time, "%H:%M:%S")
+        # r_time = timezone.timedelta(hours=r_time.hour, minutes=r_time.minute, seconds=r_time.second)
+        self.assertEqual(r_time, None)
 
     def test_get_user_tasks(self) -> None:
         self.client.force_authenticate(user=self.user)
@@ -168,10 +168,10 @@ class TestTasks(APITestCase):
         response = self.client.patch(reverse("tasks-complete-task", args=[1]))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["message"], "Task completed successfully")
+        self.assertEqual(response.data["message"], "Task already completed")
 
         # complete task that does not belong to user
-        response = self.client.patch(reverse("tasks-complete-task", args=[5]))
+        response = self.client.patch(reverse("tasks-complete-task", args=[6]))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["message"], "Task completed successfully")
@@ -290,7 +290,7 @@ class TestTimeLog(APITestCase):
 
         self.client.force_authenticate(user=self.user)
         response = self.client.patch(reverse("tasks-start-timer", args=[1]))
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data["message"])
 
         # check if timelog is created
         self.assertEqual(TimeLog.objects.count(), initial_count + 1)
