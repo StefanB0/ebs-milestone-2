@@ -38,7 +38,6 @@ class TestTasks(APITestCase):
         self.assertContains(response, "user", status_code=201)
         self.assertContains(response, "time_spent", status_code=201)
 
-
     def test_get_tasks(self) -> None:
         self.client.force_authenticate(user=self.user)
         response = self.client.get(reverse("tasks-list"))

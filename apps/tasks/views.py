@@ -1,8 +1,5 @@
-import math
 import logging
 
-from django.utils import timezone
-from django.core.mail import send_mail
 from django.core.cache import cache
 
 from rest_framework.viewsets import ModelViewSet, GenericViewSet
@@ -201,6 +198,6 @@ class TaskTimeLogViewSet(mixins.CreateModelMixin, GenericViewSet):
             top_logs = TimeLog.user_top_logs(request.user, limit)
             cache.set(cache_str, top_logs, timeout=60)
 
-        top_logs = TimeLog.user_top_logs(request.user, limit)
+        # top_logs = TimeLog.user_top_logs(request.user, limit)
         response_serializer = TimeLogSerializer(top_logs, many=True)
         return Response(response_serializer.data)

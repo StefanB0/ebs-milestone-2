@@ -98,8 +98,6 @@ class Task(models.Model):
         )
 
 
-
-
 class Comment(models.Model):
     body = models.TextField()
     task = models.ForeignKey(Task, on_delete=models.CASCADE)
@@ -137,7 +135,7 @@ class TimeLog(models.Model):
                 self.duration = timezone.timedelta(seconds=duration_rounded)
             if time_log.start_time < self.start_time < time_log.start_time + time_log.duration:
                 raise Exception(
-                    f"TimeLog overlaps with another timeLog."
+                    "TimeLog overlaps with another timeLog."
                     + f"Conflict_id={time_log.id}."
                     + f"Task_id={time_log.task.id}:{self.task.id},"
                     + f"Date={time_log.start_time.date()}/{self.start_time.date()},"
@@ -155,6 +153,7 @@ class TimeLog(models.Model):
         duration = timezone.timedelta(seconds=self.duration.total_seconds())
         return duration
 
+    @staticmethod
     def user_time_last_month(user):
         last_month = timezone.now() - timezone.timedelta(days=30)
         logs = TimeLog.objects.filter(
@@ -162,6 +161,7 @@ class TimeLog(models.Model):
         ).exclude(duration=None)
         return logs.aggregate(Sum("duration"))["duration__sum"]
 
+    @staticmethod
     def user_top_logs(user: User, limit=20):
         last_month = timezone.now() - timezone.timedelta(days=30)
         logs = (
