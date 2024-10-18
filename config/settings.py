@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
+import os
 import environ
 
 from pathlib import Path
@@ -51,6 +52,7 @@ INSTALLED_APPS = [
     # Local apps
     "apps.common",
     "apps.users",
+    "apps.tasks",
 ]
 
 MIDDLEWARE = [
@@ -129,7 +131,19 @@ DATABASES = {
 
 if env("DOCKER"):
     DATABASES = {"default": env.db()}
+# Cache
 
+# Redis Cache
+if env("DOCKER"):
+    CACHES = {
+        "default": {
+            "BACKEND": "django_redis.cache.RedisCache",
+            "LOCATION": "redis://redis-db:6379/1",
+            "OPTIONS": {
+                "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            },
+        }
+    }
 
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
@@ -147,6 +161,11 @@ AUTH_PASSWORD_VALIDATORS = [
     {
         "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
     },
+]
+
+AUTHENTICATION_BACKENDS = [
+    "apps.users.auth_backend.EmailLoginBackend",  # Replace 'yourapp' with your app name
+    "django.contrib.auth.backends.ModelBackend",  # Keep the default backend for username support
 ]
 
 
@@ -178,3 +197,43 @@ SPECTACULAR_SETTINGS = {
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": True,
 }
+
+# Email settings
+# if DEBUG:
+EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+# EMAIL_BACKEND = "django.core.mail.backends.filebased.EmailBackend"
+# EMAIL_FILE_PATH = BASE_DIR / "temp/dev-email"
+
+# Logging
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": "WARNING",
+    },
+    "loggers": {
+        "django": {
+            "handlers": ["console"],
+            "level": os.getenv("DJANGO_LOG_LEVEL", "INFO"),
+            "propagate": False,
+        },
+    },
+}
+
+# Celery settings
+
+CELERY_BROKER_URL = 'amqp://admin:admin@localhost'
+
+#: Only add pickle to this list if your broker is secured
+#: from unwanted access (see userguide/security.html)
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_RESULT_BACKEND = 'db+sqlite:///results.sqlite'
+# CELERY_RESULT_BACKEND = "redis://localhost"
+CELERY_TASK_SERIALIZER = 'json'

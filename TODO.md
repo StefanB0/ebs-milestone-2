@@ -1,0 +1,64 @@
+- Milestone 2
+  - [x] Create a new "Comment" model in "tasks" app
+  - [x] Add comment to task - user send task_id, comment text and receive id of the new comment
+  - [x] View task comments - user send task id and receive list of all comments added to this task
+  - [x] Search task by title - user send search term and receive list of tasks that match
+  - [x] Add email notification when task is assigned to me
+  - [x] Add email notification when my task is commented
+  - [x] Add email notification when commented task is completed
+- Tests
+  - [x] Create a task endpoint - user send title, description and receive new task id, the new task is assigned to current user
+  - [x] View list of tasks - user receive a list with id and title of all created tasks from application
+  - [x] View task details by id - user send task_id and receive task details: id, title, description, status, owner
+  - [x] View my tasks - user receive a list with id and title of tasks assigned to him
+  - [x] View Completed tasks - user receive a list with id and title of tasks with status completed
+  - [x] Assign a task to user - user send task_id and user_id and receive successful response after update task owner
+  - [x] Complete a task - user send task_id and receive successful response after update of task status in completed
+  - [x] Remove task - user send task_id and receive successful response after task deletion
+  - [x] Add comment to task - user send task_id, comment text and receive id of the new comment
+  - [x] View task comments - user send task id and receive list of all comments added to this task
+  - [x] Search task by title - user send search term and receive list of tasks that match
+  - [x] Add email notification when task is assigned to me
+  - [x] Add email notification when my task is commented
+  - [x] Add email notification when commented task is completed
+
+- Milestone 3
+  - [x] Added fixtures to tests
+  - [x] Changed admin view to be more readable
+  - [x] Start a timer for my task - user send task id and receive successful response after logging the start of task in DB
+  - [x] Stop timer for the started task - user send task id and receive successful response after adding a time log for this task with duration of work for current date
+  - [x] Add time log for a task on a specific date - user manually send in task id, date, duration in minutes and receive successful response of save
+  - [x] Get a list of time logs records by task - user send task id and receive list of all time logs created for this task
+  - [x] Change get list of tasks endpoint get receive the sum of the time in minutes for each task
+  - [x] Get the logged time in last month - user send a request and receive total amount of time logged by him in last month
+  - [x] Get top 20 tasks in last month by time - user send request and receive list of id, title, time amount of tasks with bigger logged amount of time
+
+- Milestone 4
+  - [x] Add unit tests for each endpoint [link](https://www.django-rest-framework.org/api-guide/testing/)
+  - [x] Add coverage package and generate report to be sure in 100% test coverage [link](https://docs.djangoproject.com/en/4.2/topics/testing/advanced/#integration-with-coverage-py)
+    - [x] Users Test 100%
+    - [x] Tasks Test 100%
+    - [x] Comments Test 100%
+    - [x] TimeLogs Test 100%
+  - Refactor
+    - [x] Refactor code to use aggregate/annotate
+    - [x] Users Code Clean + Refactor
+    - [x] Tasks Code Clean + Refactor
+    - [x] Comments Code Clean + Refactor
+    - [x] TimeLogs Code Clean + Refactor
+  - [x] Install PostgreSQL docker container and move your app on PostgreSQL
+  - [x] Create a script that will add random 25.000 tasks and 50.000 time logs ( use [link](https://docs.djangoproject.com/en/4.2/howto/custom-management-commands/))
+  - [x] Install PGHero docker container and connect it to your db [link](https://github.com/ankane/pghero/blob/master/guides/Docker.md)
+  - [x] Manual test all endpoints and check with PGHero that all sql queries use db indexes, after insert of thousands of tasks some endpoints can perform slow
+  - [x] Install Redis docker container and configure Django to cache with 1 minute TTL the endpoint with Top 20 tasks by time for each user [link](https://github.com/jazzband/django-redis)
+  - [x] Create Dockerfile for your application to run it with docker-compose command
+- Milestone 2 add-ons
+  - [x] Create a task endpoint - user send title, description and receive new task data, the new task is assigned to current user (was id, now back to full)
+  - [x] Add filter by user_id in get list of tasks endpoint to receive tasks assigned to specific user
+  - [x] Add status filter in get list of tasks endpoint to receive tasks with specific status
+- Milestone 5
+  - [ ] Send emails using celery (On internal error, resend email in 5 min)
+    - [ ] RabbitMQ Message Broker
+    - [ ] Setup django to send mails using mailhog
+    - [ ] Add mailhog to docker compose
+    
