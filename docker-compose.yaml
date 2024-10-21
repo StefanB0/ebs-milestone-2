@@ -4,16 +4,41 @@ services:
     build: .
     environment:
       - DEBUG=true
-      - DATABASE_URL=postgres://admin:adminpass@postgres-db:5432/POSTGRESDB1
+      - DATABASE_URL=postgres://postgres:postgres@postgres-db:5432/postgres
     ports:
       - "8000:8000"
-    # tty: true
-    # entrypoint: bash
+    depends_on:
+      - postgres-db
+    volumes:
+      - ./fixtures:/app/fixtures
+#    tty: true
+#    entrypoint: bash
   postgres-db:
     image: postgres:latest
     environment:
-      POSTGRES_USER: admin
-      POSTGRES_DB: POSTGRESDB1
-      POSTGRES_PASSWORD: adminpass
+      POSTGRES_USER: postgres
+      POSTGRES_DB: postgres
+      POSTGRES_PASSWORD: postgres
     ports:
-      - 5432:5432
+      - "5432:5432"
+    command: >
+      postgres -c shared_preload_libraries=pg_stat_statements
+    volumes:
+      - ./postgres://docker-entrypoint-initdb.d
+  pg-hero:
+    image: ankane/pghero:latest
+    environment:
+      - DATABASE_URL=postgres://postgres:postgres@postgres-db:5432/postgres
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres-db
+    tty: true
+  redis-db:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./local/db-data/redis-db:/data/redis
+
+

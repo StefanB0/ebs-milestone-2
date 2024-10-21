@@ -1,163 +1,106 @@
 from django.contrib.auth.models import User
-from rest_framework.generics import GenericAPIView
-from rest_framework.permissions import AllowAny, IsAuthenticated
-from rest_framework.request import Request
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.viewsets import GenericViewSet
 from rest_framework.decorators import action
 from rest_framework.mixins import ListModelMixin, RetrieveModelMixin
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, TokenRefreshSerializer
+from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework import status
-from drf_spectacular.utils import extend_schema, inline_serializer
-
-from rest_framework import serializers
-
-from apps.users.serializers import UserSerializer
-from apps.common.permissions import ReadOnly
 
 
-@extend_schema(responses=inline_serializer(name="abcd", fields={"refresh": serializers.CharField(), "access": serializers.CharField()}))
-class RegisterUserView(GenericAPIView):
-    serializer_class = UserSerializer
-    permission_classes = (AllowAny,)
-    authentication_classes = ()
-
-    def post(self, request: Request) -> Response:
-        #  Validate data
-        serializer = self.serializer_class(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        validated_data = serializer.validated_data
-
-        # Get password from validated data
-        password = validated_data.pop("password")
-
-        # Create user
-        user = User.objects.create(
-            **validated_data,
-            is_superuser=True,
-            is_staff=True,
-        )
-
-        # Set password
-        user.set_password(password)
-        user.save()
-
-        refresh = RefreshToken.for_user(user)
-
-        # ? Swagger doesnt display correct response fields
-        return Response(
-            {
-                "refresh": str(refresh),
-                "access": str(refresh.access_token),
-            }
-        )
-
-
-class UserListView(GenericAPIView):
-    serializer_class = UserSerializer
-    permission_classes = (ReadOnly, IsAuthenticated)
-
-    def get(self, request: Request) -> Response:
-        users = User.objects.all()
-        users_data = map(lambda user: {"id": user.id, "fullname": user.first_name + " " + user.last_name}, users)
-        return Response(users_data)
-
-
-class UserRegisterSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True)
-
-    class Meta:
-        model = User
-        fields = (
-            "first_name",
-            "last_name",
-            "username",
-            "email",
-            "password",
-        )
-
-
-class UserLoginSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True)
-
-    class Meta:
-        model = User
-        fields = (
-            "first_name",
-            "last_name",
-            "username",
-            "email",
-            "password",
-        )
+from apps.users.serializers import UserSerializer, UserRegisterSerializer, UserLoginSerializer
 
 
 class UserViewSet(RetrieveModelMixin, ListModelMixin, GenericViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
 
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        fullname = f"{instance.first_name} {instance.last_name}"
+
+        response_data = {
+            "id": instance.id,
+            "username": instance.username,
+            "full name": fullname,
+            "email": instance.email,
+        }
+
+        return Response(response_data)
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+
+        response_data = []
+        for user in queryset:
+            response_data.append(
+                {
+                    "id": user.id,
+                    "username": user.username,
+                    "full name": f"{user.first_name} {user.last_name}",
+                    "email": user.email,
+                }
+            )
+
+        return Response(response_data)
+
     @action(
         detail=False,
         methods=["POST"],
         url_path="register",
+        url_name="register",
         serializer_class=UserRegisterSerializer,
         authentication_classes=[],
         permission_classes=[AllowAny],
     )
-    @extend_schema(responses=inline_serializer(name="abcd", fields={"refresh": serializers.CharField(), "access": serializers.CharField()}))
     def register(self, request, *args, **kwargs):
-        #  Validate data
         serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
-        validated_data = serializer.validated_data
+        serializer.save()
 
-        # Get password from validated data
-        password = validated_data.pop("password")
-
-        # Create user
-        user = User.objects.create(
-            **validated_data,
-            is_superuser=True,
-            is_staff=True,
-        )
-
-        # Set password
-        user.set_password(password)
+        user = serializer.instance
+        user.set_password(serializer.validated_data["password"])
         user.save()
 
         refresh = RefreshToken.for_user(user)
 
-        # ? Swagger doesnt display correct response fields
-        return Response(
-            {
-                "refresh": str(refresh),
-                "access": str(refresh.access_token),
-            }
-        )
+        response_data = {
+            "refresh": str(refresh),
+            "access": str(refresh.access_token),
+        }
+
+        return Response(response_data, status=status.HTTP_201_CREATED)
 
     @action(
         detail=False,
         methods=["POST"],
         url_path="login",
-        serializer_class=TokenObtainPairSerializer,
+        url_name="login",
+        serializer_class=UserLoginSerializer,
         authentication_classes=[],
         permission_classes=[AllowAny],
     )
     def login(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
+        serializer = self.get_serializer(data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
 
-        try:
-            serializer.is_valid(raise_exception=True)
-        except TokenError as e:
-            raise InvalidToken(e.args[0])
+        user = serializer.validated_data["user"]
+        refresh = RefreshToken.for_user(user)
 
-        return Response(serializer.validated_data, status=status.HTTP_200_OK)
+        response_data = {
+            "refresh": str(refresh),
+            "access": str(refresh.access_token),
+        }
+
+        return Response(response_data)
 
     @action(
         detail=False,
         methods=["POST"],
         url_path="refresh",
+        url_name="refresh",
         serializer_class=TokenRefreshSerializer,
         authentication_classes=[],
         permission_classes=[AllowAny],
@@ -165,9 +108,9 @@ class UserViewSet(RetrieveModelMixin, ListModelMixin, GenericViewSet):
     def refresh(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
 
-        try:
+        try:  # pragma: no cover # django rest framework
             serializer.is_valid(raise_exception=True)
-        except TokenError as e:
+        except TokenError as e:  # pragma: no cover # django rest framework
             raise InvalidToken(e.args[0])
 
-        return Response(serializer.validated_data, status=status.HTTP_200_OK)
+        return Response(serializer.validated_data)
