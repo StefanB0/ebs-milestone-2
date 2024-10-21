@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     "rest_framework.authtoken",
     "corsheaders",
     "drf_spectacular",
+    "django_celery_results",
     # Local apps
     "apps.common",
     "apps.users",
@@ -199,10 +200,25 @@ SPECTACULAR_SETTINGS = {
 }
 
 # Email settings
+
 # if DEBUG:
-EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+# EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 # EMAIL_BACKEND = "django.core.mail.backends.filebased.EmailBackend"
 # EMAIL_FILE_PATH = BASE_DIR / "temp/dev-email"
+
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+if env("DOCKER"):
+    EMAIL_HOST = "mailhog-mock"
+else:
+    EMAIL_HOST = "localhost"  # MailHog runs on localhost
+
+EMAIL_PORT = 1025  # MailHog listens on this port for SMTP
+EMAIL_HOST_USER = ""  # MailHog does not require a username
+EMAIL_HOST_PASSWORD = ""  # MailHog does not require a password
+
+DEFAULT_FROM_EMAIL = "example@mail.com"
+# EMAIL_HOST_USER = "admin"
+# EMAIL_HOST_PASSWORD = "admin"
 
 # Logging
 
@@ -226,3 +242,17 @@ LOGGING = {
         },
     },
 }
+
+# Celery settings
+
+if env("DOCKER"):
+    CELERY_BROKER_URL = env("CELERY_BROKER_URL")
+    CELERY_CACHE_BACKEND = "default"
+else:
+    CELERY_CACHE_BACKEND = "django-cache"
+    CELERY_BROKER_URL = "pyamqp://guest@localhost//"
+
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_RESULT_BACKEND = "django-db"
+
+CELERY_TASK_SERIALIZER = "json"
