@@ -30,3 +30,9 @@ Run coverage
 ```shell
 coverage run --source='.' manage.py test && coverage report
 ```
+
+Start celery
+```shell
+docker run -d -p 5672:5672 rabbitmq
+celery -A config worker -l INFO
+```

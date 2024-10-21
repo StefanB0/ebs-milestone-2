@@ -5,6 +5,7 @@ services:
     environment:
       - DEBUG=true
       - DATABASE_URL=postgres://postgres:postgres@postgres-db:5432/postgres
+      - CELERY_BROKER_URL=amqp://admin:admin@rabbitmq-broker
     ports:
       - "8000:8000"
     depends_on:
@@ -22,8 +23,7 @@ services:
     ports:
       - "5432:5432"
     command: >
-      postgres -c shared_preload_libraries=pg_stat_statements;
-#      celery -A tasks worker --loglevel=INFO
+      postgres -c shared_preload_libraries=pg_stat_statements
     volumes:
       - ./postgres://docker-entrypoint-initdb.d
   pg-hero:
@@ -46,7 +46,7 @@ services:
     ports:
       - "1025:1025"
       - "8025:8025"
-  rabbitmq:
+  rabbitmq-broker:
     image: rabbitmq
     ports:
       - "5672:5672"  # RabbitMQ port

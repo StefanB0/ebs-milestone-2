@@ -16,13 +16,18 @@ def mul(x, y):
 def xsum(numbers):
     return sum(numbers)
 
-@shared_task
-def c_send_mail(to, subject, body):
-    # send_mail(
-    #     subject,
-    #     body,
-    #     '<EMAIL>',
-    #     to,
-    #     fail_silently=False,
-    # )
-    return 2+2
+
+@shared_task(bind=True, max_retries=5, default_retry_delay=600)
+def c_send_mail(self, recipient, subject, message):
+    try:
+        send_mail(
+            subject,
+            message,
+            None,  # No specific sender
+            recipient,  # List of recipient emails
+            fail_silently=False,
+        )
+        return {"success": True, "message": "Email sent!"}
+    except Exception as exc:
+        # Retry sending the email if an exception occurs
+        raise self.retry(exc=exc)

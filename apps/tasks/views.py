@@ -48,7 +48,6 @@ class TaskViewSet(ModelViewSet):
             return self.get_paginated_response(serializer.data)
 
         serializer = TaskPreviewSerializer(queryset, many=True)
-
         return Response(serializer.data)
 
     @action(detail=False, methods=["GET"], url_path="all", url_name="all-tasks")
@@ -196,6 +195,5 @@ class TaskTimeLogViewSet(mixins.CreateModelMixin, GenericViewSet):
             top_logs = TimeLog.user_top_logs(request.user, limit)
             cache.set(cache_str, top_logs, timeout=60)
 
-        # top_logs = TimeLog.user_top_logs(request.user, limit)
         response_serializer = TimeLogSerializer(top_logs, many=True)
         return Response(response_serializer.data)

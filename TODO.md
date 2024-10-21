@@ -52,13 +52,15 @@
   - [x] Manual test all endpoints and check with PGHero that all sql queries use db indexes, after insert of thousands of tasks some endpoints can perform slow
   - [x] Install Redis docker container and configure Django to cache with 1 minute TTL the endpoint with Top 20 tasks by time for each user [link](https://github.com/jazzband/django-redis)
   - [x] Create Dockerfile for your application to run it with docker-compose command
+
 - Milestone 2 add-ons
   - [x] Create a task endpoint - user send title, description and receive new task data, the new task is assigned to current user (was id, now back to full)
   - [x] Add filter by user_id in get list of tasks endpoint to receive tasks assigned to specific user
   - [x] Add status filter in get list of tasks endpoint to receive tasks with specific status
+
 - Milestone 5
-  - [ ] Send emails using celery (On internal error, resend email in 5 min)
-    - [ ] RabbitMQ Message Broker
-    - [ ] Setup django to send mails using mailhog
-    - [ ] Add mailhog to docker compose
+  - [x] Send emails using celery (On internal error, resend email in 5 min)
+    - [x] RabbitMQ Message Broker
+    - [x] Setup django to send mails using mailhog
+    - [x] Add mailhog to docker compose
     

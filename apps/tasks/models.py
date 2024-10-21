@@ -1,7 +1,6 @@
 import logging
 import math
 
-from django.core.mail import send_mail
 from django.db import models
 from django.db.models import Sum
 from django.contrib.auth.models import User
@@ -37,13 +36,7 @@ class Task(models.Model):
         self.user = new_user
         self.save()
 
-        send_mail(
-            subject="Task assigned",
-            message=f"Task [{self.title}] has been assigned to you",
-            from_email="from@example.com",
-            recipient_list=[new_user.email],
-            fail_silently=False,
-        )
+        c_send_mail.delay([new_user.email], "Task assigned", f"Task [{self.title}] has been assigned to you")
         return None
 
     def complete_task(self):
@@ -53,23 +46,19 @@ class Task(models.Model):
         self.is_completed = True
         self.save()
 
-        send_mail(
-            subject="Task completed",
-            message=f"Task [{self.title}] has been completed",
-            from_email="from@example.com",
-            recipient_list=[self.user.email],
-            fail_silently=False,
+        c_send_mail.delay(
+            [self.user.email],
+            "Task completed",
+            f"Task [{self.title}] has been completed",
         )
 
         comments = Comment.objects.filter(task=self)
-        for comment in comments:
-            send_mail(
-                subject="Task completed",
-                message=f"Task [{self.title}] has been completed",
-                from_email="from@example.com",
-                recipient_list=[comment.user.email],
-                fail_silently=False,
-            )
+        emails = [comment.user.email for comment in comments]
+        c_send_mail.delay(
+            emails,
+            "Task completed",
+            f"Task [{self.title}] has been completed",
+        )
 
         return "Task completed successfully"
 
@@ -91,15 +80,11 @@ class Task(models.Model):
         return None
 
     def notify_comment(self):
-        result = c_send_mail.delay([self.user.email], "Comment added", f"Comment added to task [{self.title}]")
-        result.ready()
-        # send_mail(
-        #     subject="Comment added",
-        #     message=f"Comment added to task [{self.title}]",
-        #     from_email="example@mail.com",
-        #     recipient_list=[self.user.email],
-        #     fail_silently=False,
-        # )
+        c_send_mail.delay(
+            [self.user.email],
+            "Comment added",
+            f"Comment added to task [{self.title}]",
+        )
 
 
 class Comment(models.Model):
