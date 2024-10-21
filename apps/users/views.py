@@ -1,4 +1,5 @@
 from django.contrib.auth.models import User
+from drf_spectacular.utils import extend_schema, OpenApiResponse, inline_serializer
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -7,16 +8,17 @@ from rest_framework.decorators import action
 from rest_framework.mixins import ListModelMixin, RetrieveModelMixin
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
-from rest_framework import status
+from rest_framework import status, serializers
 
 
-from apps.users.serializers import UserSerializer, UserRegisterSerializer, UserLoginSerializer
+from apps.users.serializers import UserSerializer, UserRegisterSerializer, UserLoginSerializer, UserPreviewSerializer
 
 
 class UserViewSet(RetrieveModelMixin, ListModelMixin, GenericViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
 
+    @extend_schema(responses={200: UserPreviewSerializer})
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
         fullname = f"{instance.first_name} {instance.last_name}"
@@ -24,12 +26,13 @@ class UserViewSet(RetrieveModelMixin, ListModelMixin, GenericViewSet):
         response_data = {
             "id": instance.id,
             "username": instance.username,
-            "full name": fullname,
+            "fullname": fullname,
             "email": instance.email,
         }
 
         return Response(response_data)
 
+    @extend_schema(responses={200: UserPreviewSerializer(many=True)})
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
 
@@ -39,13 +42,24 @@ class UserViewSet(RetrieveModelMixin, ListModelMixin, GenericViewSet):
                 {
                     "id": user.id,
                     "username": user.username,
-                    "full name": f"{user.first_name} {user.last_name}",
+                    "fullname": f"{user.first_name} {user.last_name}",
                     "email": user.email,
                 }
             )
 
         return Response(response_data)
 
+    @extend_schema(
+        request=UserRegisterSerializer,
+        responses={
+            201: OpenApiResponse(
+                response=inline_serializer(
+                    name='UserRegisterResponse',
+                    fields={'refresh': serializers.CharField(), 'access': serializers.CharField()}
+                ),
+            )
+        }
+    )
     @action(
         detail=False,
         methods=["POST"],
@@ -73,6 +87,17 @@ class UserViewSet(RetrieveModelMixin, ListModelMixin, GenericViewSet):
 
         return Response(response_data, status=status.HTTP_201_CREATED)
 
+    @extend_schema(
+        request=UserRegisterSerializer,
+        responses={
+            201: OpenApiResponse(
+                response=inline_serializer(
+                    name='UserLoginResponse',
+                    fields={'refresh': serializers.CharField(), 'access': serializers.CharField()}
+                ),
+            )
+        }
+    )
     @action(
         detail=False,
         methods=["POST"],

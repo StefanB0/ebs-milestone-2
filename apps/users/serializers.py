@@ -20,6 +20,19 @@ class UserSerializer(serializers.ModelSerializer):
         )
 
 
+class UserPreviewSerializer(serializers.ModelSerializer):
+    fullname = serializers.CharField()
+
+    class Meta:
+        model = User
+        fields = (
+            "id",
+            "username",
+            "fullname",
+            "email",
+        )
+
+
 class UserRegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
 

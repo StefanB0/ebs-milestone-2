@@ -250,7 +250,7 @@ if env("DOCKER"):
     CELERY_CACHE_BACKEND = "default"
 else:
     CELERY_CACHE_BACKEND = "django-cache"
-    CELERY_BROKER_URL = "pyamqp://guest@localhost//"
+    CELERY_BROKER_URL = "pyamqp://admin:admin@localhost//"
 
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_RESULT_BACKEND = "django-db"

@@ -26,13 +26,21 @@ Run docker compose
 docker compose up -d --build --wait
 ```
 
-Run coverage
-```shell
-coverage run --source='.' manage.py test && coverage report
-```
-
 Start celery
 ```shell
 docker run -d -p 5672:5672 rabbitmq
-celery -A config worker -l INFO
+celery -A config worker -l INFO --pool=solo
+```
+
+## Testing
+
+Run Tests, before running tests be sure to start celery and the rabbitmq container from docker compose.
+
+```shell
+python manage.py test
+```
+
+Run coverage
+```shell
+coverage run --source='.' manage.py test && coverage report
 ```
