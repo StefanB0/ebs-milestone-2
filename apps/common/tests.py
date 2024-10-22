@@ -5,7 +5,7 @@ from rest_framework.test import APIClient
 
 
 class TestCommon(TestCase):
-    fixtures = ["users"]
+    fixtures = ["fixtures/users"]
 
     def setUp(self) -> None:
         self.client = APIClient()

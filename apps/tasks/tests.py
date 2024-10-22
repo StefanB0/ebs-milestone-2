@@ -13,7 +13,7 @@ from apps.tasks.serializers import TaskSerializer, CommentSerializer, TimeLogSer
 
 
 class TestTasks(APITestCase):
-    fixtures = ["users", "tasks", "timelogs"]
+    fixtures = ["fixtures/users", "fixtures/tasks", "fixtures/timelogs"]
 
     def setUp(self) -> None:
         logging.disable(logging.CRITICAL)
@@ -192,7 +192,7 @@ class TestTasks(APITestCase):
 
 
 class TestComments(APITestCase):
-    fixtures = ["users", "tasks", "comments"]
+    fixtures = ["fixtures/users", "fixtures/tasks", "fixtures/comments"]
 
     def setUp(self) -> None:
         logging.disable(logging.CRITICAL)
@@ -227,7 +227,7 @@ class TestComments(APITestCase):
 
 
 class TestMail(APITestCase):
-    fixtures = ["users", "tasks", "comments"]
+    fixtures = ["fixtures/users", "fixtures/tasks", "fixtures/comments"]
 
     def setUp(self) -> None:
         logging.disable(logging.CRITICAL)
@@ -270,7 +270,7 @@ class TestMail(APITestCase):
 
 
 class TestTimeLog(APITestCase):
-    fixtures = ["users", "tasks", "timelogs"]
+    fixtures = ["fixtures/users", "fixtures/tasks", "fixtures/timelogs"]
 
     def setUp(self) -> None:
         logging.disable(logging.CRITICAL)
