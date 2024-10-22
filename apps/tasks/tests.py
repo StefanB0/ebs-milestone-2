@@ -1,17 +1,19 @@
 import datetime
 import logging
 
-from apps.users.models import User
+from django.test import override_settings
+from django.core import mail
 from django.urls import reverse
 from django.utils import timezone
 
 from rest_framework import status
 from rest_framework.test import APIClient, APITestCase
 
+from apps.users.models import User
 from apps.tasks.models import Task, Comment, TimeLog
 from apps.tasks.serializers import TaskSerializer, CommentSerializer, TimeLogSerializer
 
-
+@override_settings(EMAIL_BACKEND="django.core.mail.backends.console.EmailBackend")
 class TestTasks(APITestCase):
     fixtures = ["fixtures/users", "fixtures/tasks", "fixtures/timelogs"]
 
@@ -191,6 +193,7 @@ class TestTasks(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
 
 
+@override_settings(EMAIL_BACKEND="django.core.mail.backends.console.EmailBackend")
 class TestComments(APITestCase):
     fixtures = ["fixtures/users", "fixtures/tasks", "fixtures/comments"]
 
@@ -226,6 +229,7 @@ class TestComments(APITestCase):
         self.assertEqual(len(response.data), comment_nr)
 
 
+@override_settings(EMAIL_BACKEND="django.core.mail.backends.console.EmailBackend")
 class TestMail(APITestCase):
     fixtures = ["fixtures/users", "fixtures/tasks", "fixtures/comments"]
 
@@ -243,8 +247,8 @@ class TestMail(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         # check if email is sent
-        # self.assertEqual(len(mail.outbox), 1)
-        # self.assertEqual(mail.outbox[0].subject, "Task assigned")
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].subject, "Task assigned")
 
     def test_mail_complete_task(self) -> None:
         self.client.force_authenticate(user=self.user)
@@ -253,8 +257,8 @@ class TestMail(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         # check if email is sent
-        # self.assertEqual(len(mail.outbox), 1)
-        # self.assertEqual(mail.outbox[0].subject, "Task completed")
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].subject, "Task completed")
 
     def test_mail_comment_complete_task(self) -> None:
         self.client.force_authenticate(user=self.user)
@@ -262,13 +266,14 @@ class TestMail(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         # check if email is sent
-        # self.assertEqual(len(mail.outbox), 3)
-        # self.assertEqual(mail.outbox[2].subject, "Task completed")
+        self.assertEqual(len(mail.outbox), 3)
+        self.assertEqual(mail.outbox[2].subject, "Task completed")
 
         # check if email is sent to comment user
-        # self.assertEqual(mail.outbox[2].to, [self.user2.email])
+        self.assertEqual(mail.outbox[2].to, [self.user2.email])
 
 
+@override_settings(EMAIL_BACKEND="django.core.mail.backends.console.EmailBackend")
 class TestTimeLog(APITestCase):
     fixtures = ["fixtures/users", "fixtures/tasks", "fixtures/timelogs"]
 

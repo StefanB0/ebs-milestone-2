@@ -21,6 +21,22 @@ services:
       - postgres-db
     volumes:
       - ./fixtures:/app/fixtures
+  celery:
+    image: ebs-milestone-2
+    build: .
+    environment:
+      - REDIS_HOST=redis-db
+      - REDIS_PORT=6379
+      - EMAIL_HOST=mailhog-mock
+      - CELERY_BROKER_USER=admin
+      - CELERY_BROKER_PASSWORD=admin
+      - CELERY_BROKER_HOST=rabbitmq-broker
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres-db
+    volumes:
+      - ./fixtures:/app/fixtures
 #    tty: true
 #    entrypoint: bash
   postgres-db:
