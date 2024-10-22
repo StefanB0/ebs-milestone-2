@@ -18,7 +18,7 @@ class Task(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     is_completed = models.BooleanField()
 
-    def __str__(self) -> str:  # pragma: no cover # Debug
+    def __str__(self) -> str:
         return self.title
 
     @property
@@ -115,7 +115,7 @@ class Comment(models.Model):
     task = models.ForeignKey(Task, on_delete=models.CASCADE)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
 
-    def __str__(self) -> str:  # pragma: no cover # Debug
+    def __str__(self) -> str:
         return self.task.title + ": " + self.user.username + ": " + self.body
 
 
@@ -124,7 +124,7 @@ class TimeLog(models.Model):
     start_time = models.DateTimeField()
     duration = models.DurationField(blank=True, null=True)
 
-    def __str__(self) -> str:  # pragma: no cover # Debug
+    def __str__(self) -> str:
         return (
             "id="
             + str(self.id)

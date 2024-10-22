@@ -37,4 +37,5 @@ omit = [
     "config/*",
     "apps/common/*",
     "manage.py",
+    "def __str__",
     ]
