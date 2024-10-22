@@ -1,7 +1,7 @@
 import random
 
 from django.core.management.base import BaseCommand
-from django.contrib.auth.models import User
+from apps.users.models import User
 from apps.tasks.models import Task, Comment
 
 

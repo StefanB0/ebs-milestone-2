@@ -1,7 +1,7 @@
 import datetime
 import logging
 
-from django.contrib.auth.models import User
+from apps.users.models import User
 from django.urls import reverse
 from django.utils import timezone
 

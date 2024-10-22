@@ -1,4 +1,4 @@
-from django.contrib.auth.models import User
+from apps.users.models import User
 from drf_spectacular.utils import extend_schema, OpenApiResponse, inline_serializer
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
