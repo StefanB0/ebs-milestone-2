@@ -9,7 +9,7 @@ from django.utils import timezone
 
 from apps.tasks.tasks import c_send_mail
 
-logger = logging.getLogger("django")
+logger = logging.getLogger(__name__)
 
 
 class Task(models.Model):
@@ -28,7 +28,7 @@ class Task(models.Model):
         return time_spent
 
     def get_time_logs(self):
-        return TimeLog.objects.filter(task=self)
+        return self.timelog_set.all()
 
     def assign_user(self, new_user):
         if self.user == new_user:
@@ -162,7 +162,6 @@ class TimeLog(models.Model):
             raise Exception("TimeLog is already stopped")
         self.duration = timezone.now() - self.start_time
         self.save()
-        # duration = timezone.timedelta(seconds=self.duration.total_seconds())
         return self.duration
 
     @staticmethod

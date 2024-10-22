@@ -147,7 +147,7 @@ class TestTasks(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["message"], "Task assigned successfully")
 
-        response = self.client.patch(reverse("tasks-assign-task", args=[1]), {"user": self.user2.id})
+        self.client.patch(reverse("tasks-assign-task", args=[1]), {"user": self.user2.id})
 
         # test_assign_task_same_user
         response = self.client.patch(reverse("tasks-assign-task", args=[1]), {"user": self.user.id})

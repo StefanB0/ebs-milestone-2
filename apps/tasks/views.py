@@ -201,7 +201,7 @@ class CommentViewSet(mixins.CreateModelMixin, GenericViewSet):
         responses={
             201: OpenApiResponse(
                 response=inline_serializer(
-                    name='CommentIDResponse',  # Give a name to the inline serializer
+                    name='CommentIDResponse',
                     fields={ 'comment_id': serializers.IntegerField() }
                 ),
             )

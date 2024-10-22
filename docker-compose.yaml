@@ -4,8 +4,14 @@ services:
     build: .
     environment:
       - DEBUG=true
-      - DATABASE_URL=postgres://postgres:postgres@postgres-db:5432/postgres
-      - CELERY_BROKER_URL=amqp://admin:admin@rabbitmq-broker
+      - DB_HOST=postgres-db
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=postgres
+      - DB_PORT=5432
+      - CELERY_BROKER_USER=admin
+      - CELERY_BROKER_PASSWORD=admin
+      - CELERY_BROKER_HOST=rabbitmq-broker
     ports:
       - "8000:8000"
     depends_on:

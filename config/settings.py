@@ -33,7 +33,6 @@ DEBUG = env.bool("DEBUG", default=True)
 
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["*"])
 
-
 # Application definition
 
 INSTALLED_APPS = [
@@ -131,7 +130,17 @@ DATABASES = {
 }
 
 if env("DOCKER"):
-    DATABASES = {"default": env.db()}
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": env("DB_NAME"),
+            "USER": env("DB_USER"),
+            "PASSWORD": env("DB_PASSWORD"),
+            "HOST": env("DB_HOST"),
+            "PORT": env("DB_PORT"),
+        }
+    }
+
 # Cache
 
 # Redis Cache
@@ -203,22 +212,18 @@ SPECTACULAR_SETTINGS = {
 
 # if DEBUG:
 # EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
-# EMAIL_BACKEND = "django.core.mail.backends.filebased.EmailBackend"
-# EMAIL_FILE_PATH = BASE_DIR / "temp/dev-email"
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 if env("DOCKER"):
     EMAIL_HOST = "mailhog-mock"
 else:
-    EMAIL_HOST = "localhost"  # MailHog runs on localhost
+    EMAIL_HOST = "localhost"
 
-EMAIL_PORT = 1025  # MailHog listens on this port for SMTP
-EMAIL_HOST_USER = ""  # MailHog does not require a username
-EMAIL_HOST_PASSWORD = ""  # MailHog does not require a password
+EMAIL_PORT = 1025
+EMAIL_HOST_USER = ""
+EMAIL_HOST_PASSWORD = ""
 
 DEFAULT_FROM_EMAIL = "example@mail.com"
-# EMAIL_HOST_USER = "admin"
-# EMAIL_HOST_PASSWORD = "admin"
 
 # Logging
 
@@ -246,11 +251,18 @@ LOGGING = {
 # Celery settings
 
 if env("DOCKER"):
-    CELERY_BROKER_URL = env("CELERY_BROKER_URL")
+    celery_broker_user = env("CELERY_BROKER_USER")
+    celery_broker_pass = env("CELERY_BROKER_PASSWORD")
+    celery_broker_host = env("CELERY_BROKER_HOST")
+    CELERY_BROKER_URL = f"amqp://{celery_broker_user}:{celery_broker_pass}@{celery_broker_host}"
     CELERY_CACHE_BACKEND = "default"
 else:
+    celery_user = "admin"
+    celery_password = "admin"
+    celery_host = "localhost"
+
     CELERY_CACHE_BACKEND = "django-cache"
-    CELERY_BROKER_URL = "pyamqp://admin:admin@localhost//"
+    CELERY_BROKER_URL = f"pyamqp://{celery_user}:{celery_password}@{celery_host}//"
 
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_RESULT_BACKEND = "django-db"
