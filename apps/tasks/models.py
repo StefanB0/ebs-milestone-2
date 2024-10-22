@@ -62,6 +62,29 @@ class Task(models.Model):
 
         return "Task completed successfully"
 
+    def undo_task(self):
+        if not self.is_completed:
+            return "Task not completed"
+
+        self.is_completed = False
+        self.save()
+
+        c_send_mail.delay(
+            [self.user.email],
+            "Task marked incomplete",
+            f"Task [{self.title}] has been marked as incomplete",
+        )
+
+        comments = Comment.objects.filter(task=self)
+        emails = [comment.user.email for comment in comments]
+        c_send_mail.delay(
+            emails,
+            "Task marked incomplete",
+            f"Task [{self.title}] has been marked as incomplete",
+        )
+
+        return "Task marked incomplete"
+
     def start_timer(self):
         try:
             TimeLog.objects.create(task=self, start_time=timezone.now())
@@ -139,8 +162,8 @@ class TimeLog(models.Model):
             raise Exception("TimeLog is already stopped")
         self.duration = timezone.now() - self.start_time
         self.save()
-        duration = timezone.timedelta(seconds=self.duration.total_seconds())
-        return duration
+        # duration = timezone.timedelta(seconds=self.duration.total_seconds())
+        return self.duration
 
     @staticmethod
     def user_time_last_month(user):
