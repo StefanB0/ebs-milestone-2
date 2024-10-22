@@ -58,9 +58,10 @@
   - [x] Add filter by user_id in get list of tasks endpoint to receive tasks assigned to specific user
   - [x] Add status filter in get list of tasks endpoint to receive tasks with specific status
 
-- Milestone 5
+- Milestone 4 add-ons
   - [x] Send emails using celery (On internal error, resend email in 5 min)
     - [x] RabbitMQ Message Broker
     - [x] Setup django to send mails using mailhog
     - [x] Add mailhog to docker compose
-    
+  - [x] Extend schema of every endpoint to make the request and response examples accurate
+  - [ ] Add Admin Actions
