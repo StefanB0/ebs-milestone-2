@@ -3,6 +3,8 @@ import math
 
 from django.db import models
 from django.db.models import Sum
+
+from apps.tasks.exceptions import TimeLogError
 from apps.users.models import User
 
 from django.utils import timezone
@@ -31,6 +33,8 @@ class Task(models.Model):
         return self.timelog_set.all()
 
     def assign_user(self, new_user):
+        if not User.objects.filter(id=new_user.id).exists():
+            return "Assign only to existing user"
         if self.user == new_user:
             return "Cannot assign same user"
         self.user = new_user
@@ -88,7 +92,7 @@ class Task(models.Model):
     def start_timer(self):
         try:
             TimeLog.objects.create(task=self, start_time=timezone.now())
-        except Exception as e:
+        except TimeLogError as e:
             error = str(e)
             return error.split(".")[0]
         return None
@@ -97,7 +101,7 @@ class Task(models.Model):
         time_log = TimeLog.objects.filter(task=self).latest("start_time")
         try:
             time_log.stop()
-        except Exception as e:
+        except TimeLogError as e:
             error = str(e)
             return error.split(".")[0]
         return None
@@ -139,14 +143,14 @@ class TimeLog(models.Model):
     def save(self, *args, **kwargs):
         for time_log in TimeLog.objects.filter(task=self.task).exclude(id=self.id):
             if time_log.duration is None:
-                raise Exception(
+                raise TimeLogError(
                     f"Task timer is already running. Task_id={self.task.id}:{time_log.task.id}, Target_duration={time_log.duration}"
                 )
             if self.duration:
                 duration_rounded = math.floor(self.duration.total_seconds())
                 self.duration = timezone.timedelta(seconds=duration_rounded)
             if time_log.start_time < self.start_time < time_log.start_time + time_log.duration:
-                raise Exception(
+                raise TimeLogError(
                     "TimeLog overlaps with another timeLog."
                     + f"Conflict_id={time_log.id}."
                     + f"Task_id={time_log.task.id}:{self.task.id},"
@@ -159,7 +163,7 @@ class TimeLog(models.Model):
 
     def stop(self):
         if self.duration is not None:
-            raise Exception("TimeLog is already stopped")
+            raise TimeLogError("TimeLog is already stopped")
         self.duration = timezone.now() - self.start_time
         self.save()
         return self.duration

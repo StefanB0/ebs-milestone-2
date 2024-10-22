@@ -10,7 +10,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework import status, mixins, serializers
 
-
+from apps.tasks.exceptions import TimeLogError
 from apps.tasks.models import Task, Comment, TimeLog
 from apps.tasks.serializers import (
     TaskSerializer,
@@ -239,7 +239,7 @@ class TaskTimeLogViewSet(mixins.CreateModelMixin, GenericViewSet):
 
         try:
             time_log = serializer.save()
-        except Exception as e:
+        except TimeLogError as e:
             error_message = str(e).split(".")[0]
             return Response({"message": error_message}, status=403)
 
