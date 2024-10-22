@@ -1,9 +1,8 @@
 from django.contrib import admin
 from django.db.models import QuerySet
-from django.http import HttpRequest
 
 from apps.tasks.models import Task, Comment, TimeLog
-from apps.tasks.tasks import c_send_mail
+
 
 @admin.register(Task)
 class TaskAdmin(admin.ModelAdmin):

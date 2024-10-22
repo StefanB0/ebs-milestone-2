@@ -151,8 +151,8 @@ else:
 
 # Redis Cache
 if not env("LOCAL_RUN"):
-    redis_host=env("REDIS_HOST")
-    redis_port=env("REDIS_PORT")
+    redis_host = env("REDIS_HOST")
+    redis_port = env("REDIS_PORT")
     CACHES = {
         "default": {
             "BACKEND": "django_redis.cache.RedisCache",

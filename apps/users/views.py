@@ -54,11 +54,11 @@ class UserViewSet(RetrieveModelMixin, ListModelMixin, GenericViewSet):
         responses={
             201: OpenApiResponse(
                 response=inline_serializer(
-                    name='UserRegisterResponse',
-                    fields={'refresh': serializers.CharField(), 'access': serializers.CharField()}
+                    name="UserRegisterResponse",
+                    fields={"refresh": serializers.CharField(), "access": serializers.CharField()},
                 ),
             )
-        }
+        },
     )
     @action(
         detail=False,
@@ -92,11 +92,11 @@ class UserViewSet(RetrieveModelMixin, ListModelMixin, GenericViewSet):
         responses={
             201: OpenApiResponse(
                 response=inline_serializer(
-                    name='UserLoginResponse',
-                    fields={'refresh': serializers.CharField(), 'access': serializers.CharField()}
+                    name="UserLoginResponse",
+                    fields={"refresh": serializers.CharField(), "access": serializers.CharField()},
                 ),
             )
-        }
+        },
     )
     @action(
         detail=False,

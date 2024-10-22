@@ -38,7 +38,7 @@ class TaskViewSet(ModelViewSet):
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
-    @extend_schema(responses={ 200: TaskPreviewSerializer })
+    @extend_schema(responses={200: TaskPreviewSerializer})
     def list(self, request, *args, **kwargs):
         queryset = Task.objects.filter(user=request.user)
 
@@ -86,12 +86,12 @@ class TaskViewSet(ModelViewSet):
         responses={
             200: OpenApiResponse(
                 response=OpenApiTypes.OBJECT,
-                examples=[OpenApiExample(name="0", value={"message": "Task assigned successfully"})]
+                examples=[OpenApiExample(name="0", value={"message": "Task assigned successfully"})],
             ),
             400: OpenApiResponse(
                 response=OpenApiTypes.OBJECT,
-                examples=[OpenApiExample(name="0", value={"error": "Cannot assign same user"})]
-            )
+                examples=[OpenApiExample(name="0", value={"error": "Cannot assign same user"})],
+            ),
         }
     )
     @action(detail=True, methods=["PATCH"], url_path="assign", serializer_class=TaskUpdateSerializer)
@@ -112,8 +112,8 @@ class TaskViewSet(ModelViewSet):
                 response=OpenApiTypes.OBJECT,
                 examples=[
                     OpenApiExample(name="1", value={"message": "Task completed successfully"}),
-                    OpenApiExample(name="2", value={"error": "Task already completed"})
-                ]
+                    OpenApiExample(name="2", value={"error": "Task already completed"}),
+                ],
             )
         }
     )
@@ -128,7 +128,7 @@ class TaskViewSet(ModelViewSet):
         responses={
             200: OpenApiResponse(
                 response=OpenApiTypes.OBJECT,
-                examples=[OpenApiExample(name="0", value=["comment 1","comment 2","comment 3"])]
+                examples=[OpenApiExample(name="0", value=["comment 1", "comment 2", "comment 3"])],
             )
         }
     )
@@ -141,13 +141,12 @@ class TaskViewSet(ModelViewSet):
     @extend_schema(
         responses={
             200: OpenApiResponse(
-                response=OpenApiTypes.OBJECT,
-                examples=[OpenApiExample(name="0", value={"message": "Task started"})]
+                response=OpenApiTypes.OBJECT, examples=[OpenApiExample(name="0", value={"message": "Task started"})]
             ),
             403: OpenApiResponse(
                 response=OpenApiTypes.OBJECT,
-                examples=[OpenApiExample(name="0", value={"error": "Timer already started"})]
-            )
+                examples=[OpenApiExample(name="0", value={"error": "Timer already started"})],
+            ),
         }
     )
     @action(detail=True, methods=["PATCH"], url_path="start-timer", serializer_class=EmptySerializer)
@@ -161,8 +160,7 @@ class TaskViewSet(ModelViewSet):
     @extend_schema(
         responses={
             200: OpenApiResponse(
-                response=OpenApiTypes.OBJECT,
-                examples=[OpenApiExample(name="0", value={"message": "Timer stopped"})]
+                response=OpenApiTypes.OBJECT, examples=[OpenApiExample(name="0", value={"message": "Timer stopped"})]
             )
         }
     )
@@ -192,12 +190,9 @@ class CommentViewSet(mixins.CreateModelMixin, GenericViewSet):
         request=CommentSerializer,
         responses={
             201: OpenApiResponse(
-                response=inline_serializer(
-                    name='CommentIDResponse',
-                    fields={ 'comment_id': serializers.IntegerField() }
-                ),
+                response=inline_serializer(name="CommentIDResponse", fields={"comment_id": serializers.IntegerField()}),
             )
-        }
+        },
     )
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -219,16 +214,18 @@ class TaskTimeLogViewSet(mixins.CreateModelMixin, GenericViewSet):
         responses={
             200: OpenApiResponse(
                 response=OpenApiTypes.OBJECT,
-                examples=[OpenApiExample(name="0", value={"message": "Time Log successfully created", "time_log_id": 0})]
+                examples=[
+                    OpenApiExample(name="0", value={"message": "Time Log successfully created", "time_log_id": 0})
+                ],
             ),
             403: OpenApiResponse(
                 response=OpenApiTypes.OBJECT,
                 examples=[
                     OpenApiExample(name="1", value={"message": "You are not authorized to log time for this task"}),
                     OpenApiExample(name="2", value={"error": "TimeLog overlaps with another timeLog"}),
-                    OpenApiExample(name="3", value={"error": "Task timer is already running."})
-                ]
-            )
+                    OpenApiExample(name="3", value={"error": "Task timer is already running."}),
+                ],
+            ),
         }
     )
     def create(self, request, *args, **kwargs):
@@ -257,8 +254,7 @@ class TaskTimeLogViewSet(mixins.CreateModelMixin, GenericViewSet):
     @extend_schema(
         responses={
             200: OpenApiResponse(
-                response=OpenApiTypes.OBJECT,
-                examples=[OpenApiExample(name="0", value={"month_time_spent": "0"})]
+                response=OpenApiTypes.OBJECT, examples=[OpenApiExample(name="0", value={"month_time_spent": "0"})]
             )
         }
     )
