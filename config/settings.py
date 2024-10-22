@@ -16,7 +16,13 @@ import environ
 from pathlib import Path
 
 # Django-environ
-env = environ.Env(DOCKER=(bool, False))
+env = environ.Env(
+    LOCAL_RUN=(bool, True),
+    EMAIL_HOST=(str, "localhost"),
+    CELERY_BROKER_USER=(str, "admin"),
+    CELERY_BROKER_PASSWORD=(str, "admin"),
+    CELERY_BROKER_HOST=(str, "localhost"),
+)
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -122,14 +128,14 @@ REST_FRAMEWORK = {
 
 # Parse database connection url strings like psql://user:pass@127.0.0.1:8458/db
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+if env("LOCAL_RUN"):
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
     }
-}
-
-if env("DOCKER"):
+else:
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.postgresql",
@@ -144,11 +150,13 @@ if env("DOCKER"):
 # Cache
 
 # Redis Cache
-if env("DOCKER"):
+if not env("LOCAL_RUN"):
+    redis_host=env("REDIS_HOST")
+    redis_port=env("REDIS_PORT")
     CACHES = {
         "default": {
             "BACKEND": "django_redis.cache.RedisCache",
-            "LOCATION": "redis://redis-db:6379/1",
+            "LOCATION": f"redis://{redis_host}:{redis_port}/1",
             "OPTIONS": {
                 "CLIENT_CLASS": "django_redis.client.DefaultClient",
             },
@@ -210,14 +218,8 @@ SPECTACULAR_SETTINGS = {
 
 # Email settings
 
-# if DEBUG:
-# EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
-
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-if env("DOCKER"):
-    EMAIL_HOST = "mailhog-mock"
-else:
-    EMAIL_HOST = "localhost"
+EMAIL_HOST = env("EMAIL_HOST")
 
 EMAIL_PORT = 1025
 EMAIL_HOST_USER = ""
@@ -250,19 +252,11 @@ LOGGING = {
 
 # Celery settings
 
-if env("DOCKER"):
-    celery_broker_user = env("CELERY_BROKER_USER")
-    celery_broker_pass = env("CELERY_BROKER_PASSWORD")
-    celery_broker_host = env("CELERY_BROKER_HOST")
-    CELERY_BROKER_URL = f"amqp://{celery_broker_user}:{celery_broker_pass}@{celery_broker_host}"
-    CELERY_CACHE_BACKEND = "default"
-else:
-    celery_user = "admin"
-    celery_password = "admin"
-    celery_host = "localhost"
-
-    CELERY_CACHE_BACKEND = "django-cache"
-    CELERY_BROKER_URL = f"pyamqp://{celery_user}:{celery_password}@{celery_host}//"
+celery_broker_user = env("CELERY_BROKER_USER")
+celery_broker_pass = env("CELERY_BROKER_PASSWORD")
+celery_broker_host = env("CELERY_BROKER_HOST")
+CELERY_BROKER_URL = f"pyamqp://{celery_broker_user}:{celery_broker_pass}@{celery_broker_host}"
+CELERY_CACHE_BACKEND = "default"
 
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_RESULT_BACKEND = "django-db"

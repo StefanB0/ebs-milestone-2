@@ -9,6 +9,9 @@ services:
       - DB_PASSWORD=postgres
       - DB_NAME=postgres
       - DB_PORT=5432
+      - REDIS_HOST=redis-db
+      - REDIS_PORT=6379
+      - EMAIL_HOST=mailhog-mock
       - CELERY_BROKER_USER=admin
       - CELERY_BROKER_PASSWORD=admin
       - CELERY_BROKER_HOST=rabbitmq-broker
