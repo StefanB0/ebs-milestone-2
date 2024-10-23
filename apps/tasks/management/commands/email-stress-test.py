@@ -13,7 +13,7 @@ class Command(BaseCommand):
         parser.add_argument("email-nr", type=int)
 
     def handle(self, *args, **options):
-        email_nr = options['email-nr']
+        email_nr = options["email-nr"]
         user_list = User.objects.filter(username__icontains="random")
         if len(user_list) == 0:
             self.stdout.write(self.style.ERROR("No users found. Please create test users first"))
@@ -28,5 +28,5 @@ class Command(BaseCommand):
                 + "QWERTY-QWERTY-QWERTY-QWERTY-QWERTY\n"
                 + "QWERTY-QWERTY-QWERTY-QWERTY-QWERTY\n"
                 + "QWERTY-QWERTY-QWERTY-QWERTY-QWERTY\n"
-                + "QWERTY-QWERTY-QWERTY-QWERTY-QWERTY\n"
+                + "QWERTY-QWERTY-QWERTY-QWERTY-QWERTY\n",
             )

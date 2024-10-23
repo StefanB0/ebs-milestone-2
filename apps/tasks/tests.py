@@ -1,7 +1,6 @@
 import datetime
 import logging
 
-from django.test import override_settings
 from django.core import mail
 from django.urls import reverse
 from django.utils import timezone
@@ -12,6 +11,7 @@ from rest_framework.test import APIClient, APITestCase
 from apps.users.models import User
 from apps.tasks.models import Task, Comment, TimeLog
 from apps.tasks.serializers import TaskSerializer, CommentSerializer, TimeLogSerializer
+
 
 class TestTasks(APITestCase):
     fixtures = ["fixtures/users", "fixtures/tasks", "fixtures/timelogs"]
@@ -484,8 +484,6 @@ class TestTimeLog(APITestCase):
         # Task not found
         response = self.client.get(reverse("tasks-timer-logs", args=[9999]))
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
-
-
 
     def test_get_time_logs_month(self) -> None:
         self.client.force_authenticate(user=self.user)
