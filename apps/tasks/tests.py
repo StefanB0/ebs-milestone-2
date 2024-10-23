@@ -13,7 +13,6 @@ from apps.users.models import User
 from apps.tasks.models import Task, Comment, TimeLog
 from apps.tasks.serializers import TaskSerializer, CommentSerializer, TimeLogSerializer
 
-@override_settings(EMAIL_BACKEND="django.core.mail.backends.console.EmailBackend")
 class TestTasks(APITestCase):
     fixtures = ["fixtures/users", "fixtures/tasks", "fixtures/timelogs"]
 
@@ -225,7 +224,6 @@ class TestTasks(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
 
-@override_settings(EMAIL_BACKEND="django.core.mail.backends.console.EmailBackend")
 class TestComments(APITestCase):
     fixtures = ["fixtures/users", "fixtures/tasks", "fixtures/comments"]
 
@@ -269,7 +267,6 @@ class TestComments(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
 
-@override_settings(EMAIL_BACKEND="django.core.mail.backends.console.EmailBackend")
 class TestMail(APITestCase):
     fixtures = ["fixtures/users", "fixtures/tasks", "fixtures/comments"]
 
@@ -287,33 +284,32 @@ class TestMail(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         # check if email is sent
-        # self.assertEqual(len(mail.outbox), 1)
-        # self.assertEqual(mail.outbox[0].subject, "Task assigned")
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].subject, "Task assigned")
 
     def test_mail_complete_task(self) -> None:
+        # Task with no comments
         self.client.force_authenticate(user=self.user)
         response = self.client.patch(reverse("tasks-complete-task", args=[4]))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         # check if email is sent
-        # self.assertEqual(len(mail.outbox), 1)
-        # self.assertEqual(mail.outbox[0].subject, "Task completed")
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].subject, "Task completed")
 
-    def test_mail_comment_complete_task(self) -> None:
-        self.client.force_authenticate(user=self.user)
+        # Task with comments
         response = self.client.patch(reverse("tasks-complete-task", args=[1]))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         # check if email is sent
-        # self.assertEqual(len(mail.outbox), 3)
-        # self.assertEqual(mail.outbox[2].subject, "Task completed")
+        self.assertEqual(len(mail.outbox), 2)
+        self.assertEqual(mail.outbox[1].subject, "Task completed")
 
         # check if email is sent to comment user
-        # self.assertEqual(mail.outbox[2].to, [self.user2.email])
+        self.assertIn(self.user2.email, mail.outbox[1].to)
 
 
-@override_settings(EMAIL_BACKEND="django.core.mail.backends.console.EmailBackend")
 class TestTimeLog(APITestCase):
     fixtures = ["fixtures/users", "fixtures/tasks", "fixtures/timelogs"]
 

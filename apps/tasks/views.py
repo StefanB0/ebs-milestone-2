@@ -22,6 +22,7 @@ from apps.tasks.serializers import (
     TimeLogSerializer,
     TimeLogTopSerializer,
 )
+from apps.tasks.signals import task_comment
 from apps.users.models import User
 
 logger = logging.getLogger("django")
@@ -223,9 +224,10 @@ class CommentViewSet(mixins.CreateModelMixin, GenericViewSet):
         serializer.is_valid(raise_exception=True)
 
         task = serializer.validated_data["task"]
-        task.notify_comment()
 
-        serializer.save(user=request.user)
+        comment = serializer.save(user=request.user)
+        task_comment.send(sender=None, user=task.user, task=task, comment=comment)
+
         headers = self.get_success_headers(serializer.data)
         return Response({"comment_id": serializer.data["id"]}, status=status.HTTP_201_CREATED, headers=headers)
 

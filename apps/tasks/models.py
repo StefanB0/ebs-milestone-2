@@ -5,11 +5,10 @@ from django.db import models
 from django.db.models import Sum
 
 from apps.tasks.exceptions import TimeLogError
+from apps.tasks.signals import task_assigned, task_complete
 from apps.users.models import User
 
 from django.utils import timezone
-
-from apps.tasks.tasks import c_send_mail
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +35,7 @@ class Task(models.Model):
         self.user = new_user
         self.save()
 
-        c_send_mail.delay([new_user.email], "Task assigned", f"Task [{self.title}] has been assigned to you")
+        task_assigned.send(sender=self.__class__, user=new_user, task=self)
         return
 
     def complete_task(self):
@@ -46,19 +45,10 @@ class Task(models.Model):
         self.is_completed = True
         self.save()
 
-        c_send_mail.delay(
-            [self.user.email],
-            "Task completed",
-            f"Task [{self.title}] has been completed",
-        )
+        users = User.objects.filter(comment__task=self).distinct()
+        users |= User.objects.filter(task=self).distinct()
 
-        comments = Comment.objects.filter(task=self)
-        emails = [comment.user.email for comment in comments]
-        c_send_mail.delay(
-            emails,
-            "Task completed",
-            f"Task [{self.title}] has been completed",
-        )
+        task_complete.send(sender=self.__class__, users=users, task=self)
 
         return "Task completed successfully"
 
@@ -69,19 +59,10 @@ class Task(models.Model):
         self.is_completed = False
         self.save()
 
-        c_send_mail.delay(
-            [self.user.email],
-            "Task marked incomplete",
-            f"Task [{self.title}] has been marked as incomplete",
-        )
+        users = User.objects.filter(comment__task=self).distinct()
+        users |= User.objects.filter(task=self).distinct()
 
-        comments = Comment.objects.filter(task=self)
-        emails = [comment.user.email for comment in comments]
-        c_send_mail.delay(
-            emails,
-            "Task marked incomplete",
-            f"Task [{self.title}] has been marked as incomplete",
-        )
+        task_complete.send(sender=self.__class__, users=users, task=self)
 
         return "Task marked incomplete"
 
@@ -101,13 +82,6 @@ class Task(models.Model):
             error = str(e)
             return error.split(".")[0]
         return None
-
-    def notify_comment(self):
-        c_send_mail.delay(
-            [self.user.email],
-            "Comment added",
-            f"Comment added to task [{self.title}]",
-        )
 
 
 class Comment(models.Model):

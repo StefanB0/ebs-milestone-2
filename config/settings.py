@@ -19,6 +19,7 @@ from pathlib import Path
 env = environ.Env(
     LOCAL_RUN=(bool, True),
     EMAIL_HOST=(str, "localhost"),
+    EMAIL_BACKEND=(str, "django.core.mail.backends.smtp.EmailBackend"),
     CELERY_BROKER_USER=(str, "admin"),
     CELERY_BROKER_PASSWORD=(str, "admin"),
     CELERY_BROKER_HOST=(str, "localhost"),
@@ -219,7 +220,7 @@ SPECTACULAR_SETTINGS = {
 
 # Email settings
 
-EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_BACKEND = env("EMAIL_BACKEND")
 EMAIL_HOST = env("EMAIL_HOST")
 
 EMAIL_PORT = 1025
