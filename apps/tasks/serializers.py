@@ -22,13 +22,6 @@ class TaskPreviewSerializer(serializers.ModelSerializer):
         fields = ["id", "title", "time_spent"]
 
 
-class TaskCreateSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Task
-        fields = ["title", "description", "is_completed"]
-        extra_kwargs = {"user": {"default": serializers.CurrentUserDefault(), "read_only": True}}
-
-
 class TaskSearchSerializer(serializers.Serializer):
     search = serializers.CharField(max_length=255)
 

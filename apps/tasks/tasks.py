@@ -1,17 +1,21 @@
+from smtplib import SMTPException
+
 from celery import shared_task
 from django.core.mail import send_mail
+from django.conf import settings
 
-@shared_task(bind=True, max_retries=5, default_retry_delay=600)
+
+def send_mail_wrapper(recipient, subject, message):
+    if settings.EMAIL_BACKEND == "django.core.mail.backends.smtp.EmailBackend":
+        c_send_mail.delay(recipient, subject, message)
+    else:
+        send_mail(subject, message, None, recipient, fail_silently=False)
+
+
+@shared_task(bind=True, max_retries=5, default_retry_delay=30)
 def c_send_mail(self, recipient, subject, message):
     try:
-        send_mail(
-            subject,
-            message,
-            None,  # No specific sender
-            recipient,  # List of recipient emails
-            fail_silently=False,
-        )
-        return {"success": True, "message": "Email sent!"}
-    except Exception as exc:
-        # Retry sending the email if an exception occurs
+        send_mail(subject, message, None, recipient, fail_silently=False)
+    except SMTPException as exc:
         raise self.retry(exc=exc)
+    return {"success": True, "message": "Email sent!"}

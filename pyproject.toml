@@ -21,8 +21,8 @@ django-cors-headers = "^4.4.0"
 djangorestframework-simplejwt = "^5.3.1"
 django-redis = "^5.4.0"
 celery = "^5.4.0"
-sqlalchemy = "^2.0.36"
 django-celery-results = "^2.5.1"
+gunicorn = "^23.0.0"
 
 
 [tool.poetry.group.dev.dependencies]
@@ -38,4 +38,5 @@ omit = [
     "config/*",
     "apps/common/*",
     "manage.py",
+    "def __str__",
     ]

@@ -1,4 +1,4 @@
-from django.contrib.auth.models import User
+from apps.users.models import User
 from django.contrib.auth import authenticate
 from rest_framework import serializers
 
@@ -17,6 +17,19 @@ class UserSerializer(serializers.ModelSerializer):
             "username",
             "email",
             "password",
+        )
+
+
+class UserPreviewSerializer(serializers.ModelSerializer):
+    fullname = serializers.CharField()
+
+    class Meta:
+        model = User
+        fields = (
+            "id",
+            "username",
+            "fullname",
+            "email",
         )
 
 
