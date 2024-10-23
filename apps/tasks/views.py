@@ -22,6 +22,7 @@ from apps.tasks.serializers import (
     TimeLogSerializer,
     TimeLogTopSerializer,
 )
+from apps.users.models import User
 
 logger = logging.getLogger("django")
 
@@ -52,9 +53,14 @@ class TaskViewSet(ModelViewSet):
         serializer = TaskPreviewSerializer(queryset, many=True)
         return Response(serializer.data)
 
+    #
     @extend_schema(responses={200: TaskPreviewSerializer(many=True)})
+    @action(detail=False, methods=["GET"], url_path="users/(?P<pk>[^/.]+)", url_name="user")
     def user_tasks(self, request, *args, **kwargs):
         user_id = self.kwargs.get("pk")
+        if not User.objects.filter(id=user_id).exists():
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
         queryset = Task.objects.filter(user=user_id)
         serializer = TaskPreviewSerializer(queryset, many=True)
         return Response(serializer.data)
@@ -96,14 +102,18 @@ class TaskViewSet(ModelViewSet):
     )
     @action(detail=True, methods=["PATCH"], url_path="assign", serializer_class=TaskUpdateSerializer)
     def assign_task(self, request, *args, **kwargs):
+        if not Task.objects.filter(id=kwargs["pk"]).exists():
+            return Response({"error": "Task does not exist"}, status=status.HTTP_404_NOT_FOUND)
+
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         new_user = serializer.validated_data["user"]
 
         task = Task.objects.get(id=kwargs["pk"])
-        err = task.assign_user(new_user)
-        if err:
-            return Response({"error": err}, status=status.HTTP_400_BAD_REQUEST)
+        if task.user == new_user:
+            return Response({"error": "Task already belongs to user"}, status=status.HTTP_400_BAD_REQUEST)
+
+        task.assign_user(new_user)
         return Response({"message": "Task assigned successfully"})
 
     @extend_schema(
@@ -119,8 +129,10 @@ class TaskViewSet(ModelViewSet):
     )
     @action(detail=True, methods=["PATCH"], url_path="complete", serializer_class=EmptySerializer)
     def complete_task(self, request, *args, **kwargs):
-        queryset = self.get_queryset()
-        task = queryset.get(id=kwargs["pk"])
+        if not Task.objects.filter(id=kwargs["pk"]).exists():
+            return Response({"error": "Task does not exist"}, status=status.HTTP_404_NOT_FOUND)
+
+        task = Task.objects.get(id=kwargs["pk"])
         response_message = task.complete_task()
         return Response({"message": response_message})
 
@@ -134,6 +146,9 @@ class TaskViewSet(ModelViewSet):
     )
     @action(detail=True, methods=["GET"], url_path="comments")
     def comments(self, request, *args, **kwargs):
+        if not Task.objects.filter(id=kwargs["pk"]).exists():
+            return Response({"error": "Task does not exist"}, status=status.HTTP_404_NOT_FOUND)
+
         comments = Comment.objects.filter(task=kwargs["pk"])
         response_data = [comment.body for comment in comments]
         return Response(response_data)
@@ -151,6 +166,9 @@ class TaskViewSet(ModelViewSet):
     )
     @action(detail=True, methods=["PATCH"], url_path="start-timer", serializer_class=EmptySerializer)
     def start_timer(self, request, *args, **kwargs):
+        if not Task.objects.filter(id=kwargs["pk"]).exists():
+            return Response({"error": "Task does not exist"}, status=status.HTTP_404_NOT_FOUND)
+
         task = Task.objects.get(id=kwargs["pk"])
         err = task.start_timer()
         if err:
@@ -166,6 +184,9 @@ class TaskViewSet(ModelViewSet):
     )
     @action(detail=True, methods=["PATCH"], url_path="stop-timer", serializer_class=EmptySerializer)
     def stop_timer(self, request, *args, **kwargs):
+        if not Task.objects.filter(id=kwargs["pk"]).exists():
+            return Response({"error": "Task does not exist"}, status=status.HTTP_404_NOT_FOUND)
+
         task = Task.objects.get(id=kwargs["pk"])
         err = task.stop_timer()
         if err:
@@ -176,6 +197,9 @@ class TaskViewSet(ModelViewSet):
     @extend_schema(responses={200: TimeLogSerializer(many=True)})
     @action(detail=True, methods=["GET"], url_path="timer-logs", serializer_class=TimeLogSerializer)
     def timer_logs(self, request, *args, **kwargs):
+        if not Task.objects.filter(id=kwargs["pk"]).exists():
+            return Response({"error": "Task does not exist"}, status=status.HTTP_404_NOT_FOUND)
+
         task = Task.objects.get(id=kwargs["pk"])
         time_logs = task.get_time_logs()
         serializer = self.get_serializer(time_logs, many=True)
@@ -229,6 +253,9 @@ class TaskTimeLogViewSet(mixins.CreateModelMixin, GenericViewSet):
         }
     )
     def create(self, request, *args, **kwargs):
+        if not Task.objects.filter(id=request.data["task"]).exists():
+            return Response({"error": "Task does not exist"}, status=status.HTTP_400_BAD_REQUEST)
+
         log_user = Task.objects.get(id=request.data["task"]).user
 
         serializer = self.get_serializer(data=request.data)

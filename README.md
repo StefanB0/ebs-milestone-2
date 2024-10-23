@@ -37,6 +37,7 @@ celery -A config worker -l INFO --pool=solo
 Run Tests, before running tests be sure to start celery and the rabbitmq container from docker compose.
 ```shell
 docker compose up -d mailhog-mock rabbitmq-broker
+celery -A config worker -l INFO --pool=solo
 ```
 
 ```shell

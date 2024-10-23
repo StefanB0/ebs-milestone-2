@@ -33,15 +33,11 @@ class Task(models.Model):
         return self.timelog_set.all()
 
     def assign_user(self, new_user):
-        if not User.objects.filter(id=new_user.id).exists():
-            return "Assign only to existing user"
-        if self.user == new_user:
-            return "Cannot assign same user"
         self.user = new_user
         self.save()
 
         c_send_mail.delay([new_user.email], "Task assigned", f"Task [{self.title}] has been assigned to you")
-        return None
+        return
 
     def complete_task(self):
         if self.is_completed:

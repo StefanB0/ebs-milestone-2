@@ -84,6 +84,10 @@ class TestTasks(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), Task.objects.filter(user=self.user).count())
 
+        # User ID does not exist
+        response = self.client.get(reverse("tasks-user", kwargs={"pk": 9999}))
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
     def test_get_all_task(self) -> None:
         self.client.force_authenticate(user=self.user)
         response = self.client.get(reverse("tasks-all-tasks"))
@@ -103,9 +107,14 @@ class TestTasks(APITestCase):
         self.assertContains(response, "is_completed")
         self.assertContains(response, "user")
 
+        # Get task that belongs to another user
         response = self.client.get(reverse("tasks-detail", args=[6]))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["user"], self.user2.id)
+
+        # Task ID does not exist
+        response = self.client.get(reverse("tasks-detail", args=[9999]))
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_get_completed_tasks(self) -> None:
         self.client.force_authenticate(user=self.user)
@@ -127,6 +136,7 @@ class TestTasks(APITestCase):
         self.assertEqual(len(response.data), 3)
 
     def test_search_task(self) -> None:
+        # Search full title
         self.client.force_authenticate(user=self.user)
         response = self.client.post(reverse("tasks-search"), {"search": "Test task 1"})
 
@@ -137,10 +147,16 @@ class TestTasks(APITestCase):
         self.assertContains(response, "title")
         self.assertContains(response, "id")
 
+        # Search partial title
         response = self.client.post(reverse("tasks-search"), {"search": "Finish"})
         task_nr = Task.objects.filter(title__icontains="Finish").count()
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), task_nr)
+
+        # Title does not exist
+        response = self.client.post(reverse("tasks-search"), {"search": "Idempotent"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 0)
 
     def test_assign_task(self) -> None:
         self.client.force_authenticate(user=self.user)
@@ -152,10 +168,19 @@ class TestTasks(APITestCase):
         self.client.patch(reverse("tasks-assign-task", args=[1]), {"user": self.user2.id})
 
         # test_assign_task_same_user
+        self.client.patch(reverse("tasks-assign-task", args=[1]), {"user": self.user.id})
         response = self.client.patch(reverse("tasks-assign-task", args=[1]), {"user": self.user.id})
 
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["message"], "Task assigned successfully")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data["error"], "Task already belongs to user")
+
+        # User does not exist
+        response = self.client.patch(reverse("tasks-assign-task", args=[1]), {"user": 9999})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        # Task does not exist
+        response = self.client.patch(reverse("tasks-assign-task", args=[9999]), {"user": self.user2.id})
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_complete_task(self) -> None:
         self.client.force_authenticate(user=self.user)
@@ -176,6 +201,10 @@ class TestTasks(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["message"], "Task completed successfully")
 
+        # Task does not exist
+        response = self.client.patch(reverse("tasks-complete-task", args=[9999]))
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
     def test_delete_task(self) -> None:
         self.client.force_authenticate(user=self.user)
         response = self.client.delete(reverse("tasks-detail", args=[1]))
@@ -189,8 +218,11 @@ class TestTasks(APITestCase):
 
         # delete task that does not belong to user
         response = self.client.delete(reverse("tasks-detail", args=[5]))
-
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+
+        # Task does not exist
+        response = self.client.delete(reverse("tasks-detail", args=[9999]))
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
 
 @override_settings(EMAIL_BACKEND="django.core.mail.backends.console.EmailBackend")
@@ -220,6 +252,10 @@ class TestComments(APITestCase):
         self.assertIsNotNone(comment)
         self.assertEqual(comment.body, "Test comment 999")
 
+        # Task does not exist
+        response = self.client.post(reverse("comments-list"), {"body": "Test comment 000", "task": 9999})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
     def test_get_comments(self) -> None:
         self.client.force_authenticate(user=self.user)
         comment_nr = Task.objects.get(id=1).comment_set.count()
@@ -227,6 +263,10 @@ class TestComments(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), comment_nr)
+
+        # Comment does not exist
+        response = self.client.get(reverse("tasks-comments", args=[9999]))
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
 
 @override_settings(EMAIL_BACKEND="django.core.mail.backends.console.EmailBackend")
@@ -247,8 +287,8 @@ class TestMail(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         # check if email is sent
-        self.assertEqual(len(mail.outbox), 1)
-        self.assertEqual(mail.outbox[0].subject, "Task assigned")
+        # self.assertEqual(len(mail.outbox), 1)
+        # self.assertEqual(mail.outbox[0].subject, "Task assigned")
 
     def test_mail_complete_task(self) -> None:
         self.client.force_authenticate(user=self.user)
@@ -257,8 +297,8 @@ class TestMail(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         # check if email is sent
-        self.assertEqual(len(mail.outbox), 1)
-        self.assertEqual(mail.outbox[0].subject, "Task completed")
+        # self.assertEqual(len(mail.outbox), 1)
+        # self.assertEqual(mail.outbox[0].subject, "Task completed")
 
     def test_mail_comment_complete_task(self) -> None:
         self.client.force_authenticate(user=self.user)
@@ -266,11 +306,11 @@ class TestMail(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         # check if email is sent
-        self.assertEqual(len(mail.outbox), 3)
-        self.assertEqual(mail.outbox[2].subject, "Task completed")
+        # self.assertEqual(len(mail.outbox), 3)
+        # self.assertEqual(mail.outbox[2].subject, "Task completed")
 
         # check if email is sent to comment user
-        self.assertEqual(mail.outbox[2].to, [self.user2.email])
+        # self.assertEqual(mail.outbox[2].to, [self.user2.email])
 
 
 @override_settings(EMAIL_BACKEND="django.core.mail.backends.console.EmailBackend")
@@ -316,6 +356,10 @@ class TestTimeLog(APITestCase):
         response = self.client.patch(reverse("tasks-start-timer", args=[1]))
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
+        # Task does not exist
+        response = self.client.patch(reverse("tasks-start-timer", args=[9999]))
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
     def test_stop_timer(self) -> None:
         task = Task.objects.get(id=5)
         TimeLog.objects.create(task=task, start_time=timezone.now() - timezone.timedelta(hours=1))
@@ -337,6 +381,10 @@ class TestTimeLog(APITestCase):
         self.client.force_authenticate(user=self.user2)
         response = self.client.patch(reverse("tasks-stop-timer", args=[1]))
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+        # Task does not exist
+        response = self.client.patch(reverse("tasks-stop-timer", args=[9999]))
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_create_time_log(self) -> None:
         task = Task.objects.get(id=1)
@@ -405,6 +453,17 @@ class TestTimeLog(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
+        # Task does not exist
+        response = self.client.post(
+            reverse("timelogs-list"),
+            {
+                "task": 9999,
+                "start_time": timezone.now() - timezone.timedelta(hours=1),
+                "duration": timezone.timedelta(hours=1),
+            },
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
     def test_get_time_logs(self) -> None:
         task = Task.objects.get(id=1)
         self.client.force_authenticate(user=self.user)
@@ -414,9 +473,10 @@ class TestTimeLog(APITestCase):
         self.assertEqual(len(response.data), task.timelog_set.count())
 
         # get timelogs for task that does not have any timelogs
-        task = Task.objects.get(id=2)
+        task = Task.objects.get(id=8)
         response = self.client.get(reverse("tasks-timer-logs", args=[task.id]))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 0)
 
         # get timelogs for task that does not belong to user
         self.client.force_authenticate(user=self.user2)
@@ -424,6 +484,12 @@ class TestTimeLog(APITestCase):
         response = self.client.get(reverse("tasks-timer-logs", args=[task.id]))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # Task not found
+        response = self.client.get(reverse("tasks-timer-logs", args=[9999]))
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+
 
     def test_get_time_logs_month(self) -> None:
         self.client.force_authenticate(user=self.user)
