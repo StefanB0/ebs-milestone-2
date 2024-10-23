@@ -31,10 +31,11 @@ ENV DJANGO_SUPERUSER_PASSWORD=admin
 ENV DJANGO_SUPERUSER_EMAIL=admin@admin.com
 
 ENTRYPOINT bash -c " \
-    celery -A config worker -l INFO --detach && \
     python manage.py migrate --noinput && \
     python manage.py createsuperuser --noinput || true && \
     python manage.py loaddata fixtures/*.json || true && \
+    python manage.py db-populate-users 5 || true && \
+    python manage.py db-populate-tasks 1000 || true && \
     python manage.py runserver 0.0.0.0:8000"
 
 # CMD [ "python",  "manage.py", "runserver", "0.0.0.0:8000"]
