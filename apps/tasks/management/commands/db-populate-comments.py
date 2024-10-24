@@ -34,8 +34,10 @@ class Command(BaseCommand):
         )
 
     def create_comments(self, comment_nr, user_list, task_list):
-        for i in range(0, comment_nr):
+        for i in range(0, comment_nr + 1):
             cstr = "random-comment-" + str(i)
             Comment.objects.create(body=cstr, task=random.choice(task_list), user=random.choice(user_list))
             if i % 10 == 0 and i != 0:
                 self.stdout.write(self.style.SUCCESS("created comments " + str(i - 9) + ":" + str(i)))
+            elif i == comment_nr:
+                self.stdout.write(self.style.SUCCESS("created comments " + str(i - (i % 10) + 1) + ":" + str(i)))

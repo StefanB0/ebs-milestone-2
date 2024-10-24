@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.db.models import QuerySet
 
-from apps.tasks.models import Task, Comment, TimeLog
+from apps.tasks.models import Task, Comment, TimeLog, TaskAttachment
 
 
 @admin.register(Task)
@@ -34,6 +34,14 @@ class CommentAdmin(admin.ModelAdmin):
     list_display_links = ["body"]
     search_fields = ["body"]
     list_filter = ["task", "user"]
+
+
+@admin.register(TaskAttachment)
+class TaskAttachmentAdmin(admin.ModelAdmin):
+    list_display = ["id", "task"]
+    list_display_links = ["task"]
+    search_fields = ["task__title"]
+    list_filter = ["task"]
 
 
 @admin.register(TimeLog)

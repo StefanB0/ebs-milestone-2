@@ -6,33 +6,32 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
     dependencies = [
-        ('tasks', '0001_initial'),
+        ("tasks", "0001_initial"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='comment',
-            name='user',
+            model_name="comment",
+            name="user",
             field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL),
         ),
         migrations.AddField(
-            model_name='task',
-            name='user',
+            model_name="task",
+            name="user",
             field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL),
         ),
         migrations.AddField(
-            model_name='comment',
-            name='task',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='tasks.task'),
+            model_name="comment",
+            name="task",
+            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to="tasks.task"),
         ),
         migrations.AddField(
-            model_name='timelog',
-            name='task',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='tasks.task'),
+            model_name="timelog",
+            name="task",
+            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to="tasks.task"),
         ),
     ]

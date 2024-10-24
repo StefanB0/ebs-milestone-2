@@ -27,7 +27,7 @@ class Command(BaseCommand):
         )
 
     def create_tasks(self, task_nr, user_list):
-        for i in range(0, task_nr):
+        for i in range(1, task_nr + 1):
             tstr = "random-task-" + str(i)
             Task.objects.create(
                 title=tstr,
@@ -35,5 +35,7 @@ class Command(BaseCommand):
                 user=random.choice(user_list),
                 is_completed=random.choice([True, False]),
             )
-            if i % 10 == 0 and i != 0:
+            if i % 10 == 0:
                 self.stdout.write(self.style.SUCCESS("created tasks " + str(i - 9) + ":" + str(i)))
+            elif i == task_nr:
+                self.stdout.write(self.style.SUCCESS("created tasks " + str(i - (i % 10) + 1) + ":" + str(i)))

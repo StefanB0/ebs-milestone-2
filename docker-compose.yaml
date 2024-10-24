@@ -2,52 +2,36 @@ services:
   app:
     image: ebs-milestone-2
     build: .
+    env_file: .env
     environment:
-      - DEBUG=true
-      - DB_HOST=postgres-db
-      - DB_USER=postgres
-      - DB_PASSWORD=postgres
-      - DB_NAME=postgres
-      - DB_PORT=5432
-      - REDIS_HOST=redis-db
-      - REDIS_PORT=6379
-      - EMAIL_HOST=mailhog-mock
-      - CELERY_BROKER_USER=admin
-      - CELERY_BROKER_PASSWORD=admin
-      - CELERY_BROKER_HOST=rabbitmq-broker
+      - DEBUG=false
     ports:
       - "8000:8000"
     depends_on:
       - postgres-db
+      - minio
+      - pg-hero
+      - redis-db
+#    tty: true
+#    entrypoint: bash
     volumes:
       - ./fixtures:/app/fixtures
   celery:
     image: ebs-milestone-2
     build: .
     environment:
-      - DEBUG=true
-      - DB_HOST=postgres-db
-      - DB_USER=postgres
-      - DB_PASSWORD=postgres
-      - DB_NAME=postgres
-      - DB_PORT=5432
-      - REDIS_HOST=redis-db
-      - REDIS_PORT=6379
-      - EMAIL_HOST=mailhog-mock
-      - CELERY_BROKER_USER=admin
-      - CELERY_BROKER_PASSWORD=admin
-      - CELERY_BROKER_HOST=rabbitmq-broker
+      - DEBUG=false
+    env_file: .env
     ports:
       - "5555:5555"
     depends_on:
-      - postgres-db
+      - app
+      - mailhog-mock
+      - rabbitmq-broker
     entrypoint: []
-    command: >
-      celery -A config worker -l INFO
+    command: celery -A config worker -l INFO
     volumes:
       - ./fixtures:/app/fixtures
-#    tty: true
-#    entrypoint: bash
   postgres-db:
     image: postgres:latest
     environment:
@@ -56,8 +40,7 @@ services:
       POSTGRES_PASSWORD: postgres
     ports:
       - "5432:5432"
-    command: >
-      postgres -c shared_preload_libraries=pg_stat_statements
+    command: postgres -c shared_preload_libraries=pg_stat_statements
     volumes:
       - ./postgres://docker-entrypoint-initdb.d
   pg-hero:
@@ -75,11 +58,33 @@ services:
       - "6379:6379"
     volumes:
       - ./local/db-data/redis-db:/data/redis
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    ports:
+      - "9000:9000" # MinIO port
+      - "9001:9001" # MinIO dashboard
+    volumes:
+      - data:/data
+    environment:
+      - "MINIO_ROOT_USER=admin"
+      - "MINIO_ROOT_PASSWORD=admin-admin"
+    command: server /data --console-address :9001
+#  minio-bucket:
+#    image: minio/mc:latest
+#    depends_on:
+#      - minio
+#    entrypoint: >
+#      /bin/sh -c "
+#      /usr/bin/mc config host add --api s3v4 s3 http://minio:9000 user password;
+#      /usr/bin/mc mb s3/static/;
+#      /usr/bin/mc anonymous set download s3/static;
+#      "
   mailhog-mock:
     image: mailhog/mailhog
     ports:
-      - "1025:1025"
-      - "8025:8025"
+      - "1025:1025" # SMTP port
+      - "8025:8025" # Dashboard
   rabbitmq-broker:
     image: rabbitmq
     ports:
@@ -88,3 +93,5 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: admin
       RABBITMQ_DEFAULT_PASS: admin
+volumes:
+  data:

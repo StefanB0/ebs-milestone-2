@@ -14,10 +14,12 @@ import os
 import environ
 
 from pathlib import Path
+from typing import List, Tuple
+from datetime import timedelta
+
 
 # Django-environ
 env = environ.Env(
-    LOCAL_RUN=(bool, True),
     EMAIL_HOST=(str, "localhost"),
     EMAIL_BACKEND=(str, "django.core.mail.backends.smtp.EmailBackend"),
     CELERY_BROKER_USER=(str, "admin"),
@@ -61,6 +63,9 @@ INSTALLED_APPS = [
     "apps.users",
     "apps.tasks",
 ]
+
+if not DEBUG:
+    INSTALLED_APPS.append("django_minio_backend")
 
 MIDDLEWARE = [
     # Default Django middleware
@@ -129,7 +134,7 @@ REST_FRAMEWORK = {
 
 # Parse database connection url strings like psql://user:pass@127.0.0.1:8458/db
 
-if env("LOCAL_RUN"):
+if DEBUG:
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
@@ -151,7 +156,7 @@ else:
 # Cache
 
 # Redis Cache
-if not env("LOCAL_RUN"):
+if not DEBUG:
     redis_host = env("REDIS_HOST")
     redis_port = env("REDIS_PORT")
     CACHES = {
@@ -167,7 +172,7 @@ if not env("LOCAL_RUN"):
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
 
-AUTH_USER_MODEL = 'users.User'
+AUTH_USER_MODEL = "users.User"
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -201,10 +206,41 @@ USE_I18N = True
 USE_TZ = True
 
 
+# MinIO
+
+MINIO_ENDPOINT = "minio:9000"
+MINIO_EXTERNAL_ENDPOINT = "localhost:9000"  # Default is same as MINIO_ENDPOINT
+MINIO_USE_HTTPS = False
+MINIO_EXTERNAL_ENDPOINT_USE_HTTPS = False  # Default is same as MINIO_USE_HTTPS
+MINIO_REGION = "us-east-1"  # Default is set to None
+MINIO_ACCESS_KEY = "admin"
+MINIO_SECRET_KEY = "admin-admin"
+MINIO_URL_EXPIRY_HOURS = timedelta(days=1)  # Default is 7 days (longest) if not defined
+MINIO_CONSISTENCY_CHECK_ON_START = False
+MINIO_PRIVATE_BUCKETS = [
+    "django-backend-dev-private",
+]
+MINIO_PUBLIC_BUCKETS = [
+    "django-backend-dev-public",
+]
+MINIO_POLICY_HOOKS: List[Tuple[str, dict]] = []
+MEDIA_URL = "/media/"  # ignored, but it must be defined otherwise Django will throw an error.
+MINIO_MEDIA_FILES_BUCKET = "django-media-files-bucket"  # replacement for MEDIA_ROOT
+MINIO_STATIC_FILES_BUCKET = "django-static-files-bucket"  # replacement for STATIC_ROOT
+MINIO_BUCKET_CHECK_ON_SAVE = True  # Default: True // Creates bucket if missing, then save
+
+
+MINIO_PRIVATE_BUCKETS.append(MINIO_STATIC_FILES_BUCKET)
+MINIO_PRIVATE_BUCKETS.append(MINIO_MEDIA_FILES_BUCKET)
+
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
-STATIC_URL = "static/"
+STATIC_URL = f"http://{MINIO_EXTERNAL_ENDPOINT}/{MINIO_STATIC_FILES_BUCKET}/"
+if not DEBUG:
+    DEFAULT_FILE_STORAGE = "django_minio_backend.models.MinioBackend"
+    STATICFILES_STORAGE = "django_minio_backend.models.MinioBackendStatic"
+    STORAGES = {"staticfiles": {"BACKEND": "django_minio_backend.models.MinioBackendStatic"}}
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field

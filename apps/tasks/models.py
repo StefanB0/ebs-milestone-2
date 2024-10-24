@@ -3,12 +3,14 @@ import math
 
 from django.db import models
 from django.db.models import Sum
+from django.utils import timezone
+
+from django_minio_backend import MinioBackend, iso_date_prefix
 
 from apps.tasks.exceptions import TimeLogError
 from apps.tasks.signals import task_assigned, task_complete
 from apps.users.models import User
 
-from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
@@ -91,6 +93,18 @@ class Comment(models.Model):
 
     def __str__(self) -> str:
         return self.task.title + ": " + self.user.username + ": " + self.body
+
+
+class TaskAttachment(models.Model):
+    file = models.FileField(
+        verbose_name="Task Photo",
+        storage=MinioBackend(bucket_name="django-media-files-bucket"),
+        upload_to=iso_date_prefix,
+    )
+    task = models.ForeignKey(Task, on_delete=models.CASCADE)
+
+    def __str__(self) -> str:
+        return self.task.title + ": Attachment"
 
 
 class TimeLog(models.Model):

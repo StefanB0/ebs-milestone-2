@@ -21,6 +21,7 @@ class Command(BaseCommand):
                 + f"Current database size: {User.objects.count()} users"
             )
         )
+
     def create_users(self, user_nr) -> List[User]:
         user_list = []
         for i in range(0, user_nr):
