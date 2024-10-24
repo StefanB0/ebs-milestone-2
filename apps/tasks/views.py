@@ -3,6 +3,7 @@ import logging
 from django.core.cache import cache
 from drf_spectacular.openapi import OpenApiExample, OpenApiTypes
 from drf_spectacular.utils import extend_schema, OpenApiResponse, inline_serializer
+from rest_framework.parsers import FormParser, MultiPartParser
 
 from rest_framework.viewsets import ModelViewSet, GenericViewSet
 from rest_framework.permissions import IsAuthenticated
@@ -21,6 +22,7 @@ from apps.tasks.serializers import (
     EmptySerializer,
     TimeLogSerializer,
     TimeLogTopSerializer,
+    TaskAttachmentSerializer,
 )
 from apps.tasks.signals import task_comment
 from apps.users.models import User
@@ -205,6 +207,16 @@ class TaskViewSet(ModelViewSet):
         time_logs = task.get_time_logs()
         serializer = self.get_serializer(time_logs, many=True)
         return Response(serializer.data)
+
+    @action(detail=True, methods=["post"], parser_classes=[MultiPartParser, FormParser])
+    def upload_attachment(self, request, *args, **kwargs):
+        task = self.get_object()  # Fetch the task by its primary key
+        serializer = TaskAttachmentSerializer(data=request.data)
+
+        if serializer.is_valid():
+            serializer.save(task=task)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class CommentViewSet(mixins.CreateModelMixin, GenericViewSet):
