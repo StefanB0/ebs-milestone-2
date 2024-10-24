@@ -3,6 +3,7 @@ import logging
 from django.core.cache import cache
 from drf_spectacular.openapi import OpenApiExample, OpenApiTypes
 from drf_spectacular.utils import extend_schema, OpenApiResponse, inline_serializer
+from rest_framework.parsers import FormParser, MultiPartParser
 
 from rest_framework.viewsets import ModelViewSet, GenericViewSet
 from rest_framework.permissions import IsAuthenticated
@@ -11,7 +12,7 @@ from rest_framework.response import Response
 from rest_framework import status, mixins, serializers
 
 from apps.tasks.exceptions import TimeLogError
-from apps.tasks.models import Task, Comment, TimeLog
+from apps.tasks.models import Task, Comment, TimeLog, TaskAttachment
 from apps.tasks.serializers import (
     TaskSerializer,
     TaskPreviewSerializer,
@@ -21,6 +22,7 @@ from apps.tasks.serializers import (
     EmptySerializer,
     TimeLogSerializer,
     TimeLogTopSerializer,
+    TaskAttachmentSerializer,
 )
 from apps.tasks.signals import task_comment
 from apps.users.models import User
@@ -204,6 +206,43 @@ class TaskViewSet(ModelViewSet):
         task = Task.objects.get(id=kwargs["pk"])
         time_logs = task.get_time_logs()
         serializer = self.get_serializer(time_logs, many=True)
+        return Response(serializer.data)
+
+    @extend_schema(
+        request={
+            "multipart/form-data": {"type": "object", "properties": {"file": {"type": "string", "format": "binary"}}}
+        },
+        responses={
+            201: OpenApiResponse(
+                OpenApiTypes.OBJECT, examples=[OpenApiExample(name="0", value={"attach_id": 0, "task_id": 0})]
+            )
+        },
+    )
+    @action(
+        detail=True,
+        methods=["POST"],
+        parser_classes=[MultiPartParser, FormParser],
+        serializer_class=TaskAttachmentSerializer,
+    )
+    def upload_attachment(self, request, *args, **kwargs):
+        task = self.get_object()
+        request_data = request.data
+        request_data["task"] = task.id
+        serializer = TaskAttachmentSerializer(data=request_data)
+
+        serializer.is_valid()
+        instance = serializer.save()
+
+        return Response({"attach_id": instance.id, "task_id:": task.id}, status=status.HTTP_201_CREATED)
+
+    @extend_schema(responses={200: TaskAttachmentSerializer(many=True)})
+    @action(detail=True, methods=["GET"], serializer_class=TaskAttachmentSerializer)
+    def attachments(self, request, *args, **kwargs):
+        if not Task.objects.filter(id=kwargs["pk"]).exists():
+            return Response({"error": "Task does not exist"}, status=status.HTTP_404_NOT_FOUND)
+
+        attachments = TaskAttachment.objects.filter(task=kwargs["pk"])
+        serializer = self.get_serializer(attachments, many=True)
         return Response(serializer.data)
 
 

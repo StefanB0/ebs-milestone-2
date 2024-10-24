@@ -17,10 +17,9 @@ Including another URLconf
 
 from django.contrib import admin
 from django.urls import path, include
-from django.conf import settings
-from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 from rest_framework.routers import SimpleRouter
 
+from apps.common.views import AdminSpectacularSwaggerView, AdminSpectacularAPIView, AdminSpectacularRedocView
 from apps.users.views import UserViewSet
 from apps.tasks.views import TaskViewSet, CommentViewSet, TaskTimeLogViewSet
 
@@ -37,11 +36,10 @@ urlpatterns = [
 
 urlpatterns += router.urls
 
-if settings.DEBUG:
-    urlpatterns.extend(
-        [
-            path("", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
-            path("schema", SpectacularAPIView.as_view(), name="schema"),
-            path("redoc", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
-        ]
-    )
+urlpatterns.extend(
+    [
+        path("", AdminSpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
+        path("schema", AdminSpectacularAPIView.as_view(), name="schema"),
+        path("redoc", AdminSpectacularRedocView.as_view(url_name="schema"), name="redoc"),
+    ]
+)

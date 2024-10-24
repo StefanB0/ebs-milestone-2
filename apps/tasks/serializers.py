@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from apps.tasks.models import Task, Comment, TimeLog
+from apps.tasks.models import Task, Comment, TimeLog, TaskAttachment
 
 
 class TaskSerializer(serializers.ModelSerializer):
@@ -39,6 +39,14 @@ class CommentSerializer(serializers.ModelSerializer):
         model = Comment
         fields = ["id", "body", "task"]
         extra_kwargs = {"user": {"default": serializers.CurrentUserDefault(), "read_only": True}}
+
+
+class TaskAttachmentSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(source="pk", read_only=True)
+
+    class Meta:
+        model = TaskAttachment
+        fields = ["id", "file", "task"]
 
 
 class TimeLogSerializer(serializers.ModelSerializer):

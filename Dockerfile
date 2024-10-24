@@ -24,19 +24,14 @@ COPY ./apps ./apps
 
 EXPOSE 8000
 
-ENV LOCAL_RUN=false
-
-ENV DJANGO_SUPERUSER_USERNAME=admin
-ENV DJANGO_SUPERUSER_PASSWORD=admin
-ENV DJANGO_SUPERUSER_EMAIL=admin@admin.com
-
 ENTRYPOINT bash -c " \
     python manage.py migrate --noinput && \
-    python manage.py createsuperuser --noinput || true && \
     python manage.py loaddata fixtures/*.json || true && \
-    python manage.py db-populate-users 5 || true && \
-    python manage.py db-populate-tasks 1000 || true && \
+    python manage.py initialize_buckets || true && \
+    python manage.py collectstatic --no-input || true && \
     python manage.py runserver 0.0.0.0:8000"
+    # python manage.py runserver 0.0.0.0:8000"
+    # gunicorn config.wsgi:application --bind 0.0.0.0:8000
 
-# CMD [ "python",  "manage.py", "runserver", "0.0.0.0:8000"]
+#CMD [ "python",  "manage.py", "runserver", "0.0.0.0:8000"]
 

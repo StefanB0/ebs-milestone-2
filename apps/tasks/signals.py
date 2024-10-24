@@ -7,38 +7,42 @@ task_complete = Signal()
 task_undo = Signal()
 task_comment = Signal()
 
+
 @receiver(task_assigned)
 def task_assigned_handler(sender, **kwargs):
-    user = kwargs['user']
-    task = kwargs['task']
+    user = kwargs["user"]
+    task = kwargs["task"]
     recipient = [user.email]
     subject = "Task assigned"
     message = f"Task [{task.title}] has been assigned to you"
     send_mail_wrapper(recipient, subject, message)
 
+
 @receiver(task_complete)
 def task_complete_handler(sender, **kwargs):
-    users = kwargs['users']
-    task = kwargs['task']
+    users = kwargs["users"]
+    task = kwargs["task"]
     recipient = [user.email for user in users]
     subject = "Task completed"
     message = f"Task [{task.title}] has been completed"
     send_mail_wrapper(recipient, subject, message)
 
+
 @receiver(task_undo)
 def task_undo_handler(sender, **kwargs):
-    users = kwargs['users']
-    task = kwargs['task']
+    users = kwargs["users"]
+    task = kwargs["task"]
     recipient = [user.email for user in users]
     subject = "Task marked incomplete"
     message = f"Task [{task.title}] has been marked incomplete"
     send_mail_wrapper(recipient, subject, message)
 
+
 @receiver(task_comment)
 def task_comment_handler(sender, **kwargs):
-    user = kwargs['user']
-    task = kwargs['task']
-    comment = kwargs['comment']
+    user = kwargs["user"]
+    task = kwargs["task"]
+    comment = kwargs["comment"]
     recipient = [user.email]
     subject = "Task comment"
     message = f"Task [{task.title}] has received a comment:\n\t{comment.body}"
