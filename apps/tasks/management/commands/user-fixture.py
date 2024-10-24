@@ -44,18 +44,3 @@ class Command(BaseCommand):
         }
 
         print(json.dumps(user_json, indent=4))
-
-
-# {
-#     "model": "users.user",
-#     "pk": 5,
-#     "fields": {
-#         "email": "admin2@example.com",
-#         "first_name": "admin2",
-#         "last_name": "admin2",
-#         "username": "admin2",
-#         "is_superuser": true,
-#         "password": "pbkdf2_sha256$870000$00jLUlBZJLj2N6oLuwCYhi$jGYHMVkysq6jKkhPstmNF935zeTG5JAmsrBe8pXEI9o=",
-#         "is_staff": true
-#     }
-# }

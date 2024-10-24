@@ -70,16 +70,6 @@ services:
       - "MINIO_ROOT_USER=admin"
       - "MINIO_ROOT_PASSWORD=admin-admin"
     command: server /data --console-address :9001
-#  minio-bucket:
-#    image: minio/mc:latest
-#    depends_on:
-#      - minio
-#    entrypoint: >
-#      /bin/sh -c "
-#      /usr/bin/mc config host add --api s3v4 s3 http://minio:9000 user password;
-#      /usr/bin/mc mb s3/static/;
-#      /usr/bin/mc anonymous set download s3/static;
-#      "
   mailhog-mock:
     image: mailhog/mailhog
     ports:
