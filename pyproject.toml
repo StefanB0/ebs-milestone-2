@@ -25,6 +25,7 @@ django-celery-results = "^2.5.1"
 gunicorn = "^23.0.0"
 django-minio-backend = "^3.7.2"
 django-celery-beat = "^2.7.0"
+elasticsearch-dsl = "^8.15.4"
 
 
 [tool.poetry.group.dev.dependencies]

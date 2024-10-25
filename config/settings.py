@@ -301,3 +301,7 @@ CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_RESULT_BACKEND = "django-db"
 
 CELERY_TASK_SERIALIZER = "json"
+
+# Elastic search
+
+ELASTICSEARCH_DSL_HOST = "http://elasticsearch:9200"

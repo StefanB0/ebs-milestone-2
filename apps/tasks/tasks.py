@@ -14,7 +14,7 @@ from config.celery import app
 
 @app.on_after_finalize.connect
 def setup_periodic_tasks(sender, **kwargs):
-    # Executes every Monday morning at 7:30 a.m UTC.
+    # Executes every Monday morning at 7:30 a.m UTC (10:30 a.m. Moldova time).
     sender.add_periodic_task(
         crontab(hour=7, minute=30, day_of_week=1), send_weekly_report.s(), name="Weekly Task Report"
     )

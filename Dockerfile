@@ -26,10 +26,13 @@ EXPOSE 8000
 
 ENTRYPOINT bash -c " \
     python manage.py migrate --noinput && \
-    python manage.py loaddata fixtures/*.json || true && \
+    python manage.py loaddata fixtures/users.json || true && \
+    python manage.py loaddata fixtures/tasks.json || true && \
+    python manage.py loaddata fixtures/comments.json || true && \
+    python manage.py loaddata fixtures/timelogs.json || true && \
     python manage.py initialize_buckets || true && \
     python manage.py collectstatic --no-input || true && \
-    python manage.py runserver 0.0.0.0:8000"
+    gunicorn config.wsgi:application --bind 0.0.0.0:8000"
     # python manage.py runserver 0.0.0.0:8000"
     # gunicorn config.wsgi:application --bind 0.0.0.0:8000
 
