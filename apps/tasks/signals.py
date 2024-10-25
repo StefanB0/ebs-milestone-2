@@ -1,6 +1,7 @@
 from django.dispatch import Signal, receiver
 
 from apps.tasks.tasks import send_mail_wrapper
+from apps.users.models import User
 
 task_assigned = Signal()
 task_complete = Signal()
@@ -20,8 +21,10 @@ def task_assigned_handler(sender, **kwargs):
 
 @receiver(task_complete)
 def task_complete_handler(sender, **kwargs):
-    users = kwargs["users"]
     task = kwargs["task"]
+    users = User.objects.filter(comment__task=task).distinct()
+    users |= User.objects.filter(task=task).distinct()
+
     recipient = [user.email for user in users]
     subject = "Task completed"
     message = f"Task [{task.title}] has been completed"
@@ -30,8 +33,10 @@ def task_complete_handler(sender, **kwargs):
 
 @receiver(task_undo)
 def task_undo_handler(sender, **kwargs):
-    users = kwargs["users"]
     task = kwargs["task"]
+    users = User.objects.filter(comment__task=task).distinct()
+    users |= User.objects.filter(task=task).distinct()
+
     recipient = [user.email for user in users]
     subject = "Task marked incomplete"
     message = f"Task [{task.title}] has been marked incomplete"

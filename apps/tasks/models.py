@@ -8,7 +8,6 @@ from django.utils import timezone
 from django_minio_backend import MinioBackend, iso_date_prefix
 
 from apps.tasks.exceptions import TimeLogError
-from apps.tasks.signals import task_assigned, task_complete
 from apps.users.models import User
 
 
@@ -36,37 +35,20 @@ class Task(models.Model):
     def assign_user(self, new_user):
         self.user = new_user
         self.save()
-
-        task_assigned.send(sender=self.__class__, user=new_user, task=self)
         return
 
     def complete_task(self):
         if self.is_completed:
-            return "Task already completed"
-
+            return
         self.is_completed = True
         self.save()
 
-        users = User.objects.filter(comment__task=self).distinct()
-        users |= User.objects.filter(task=self).distinct()
-
-        task_complete.send(sender=self.__class__, users=users, task=self)
-
-        return "Task completed successfully"
-
     def undo_task(self):
         if not self.is_completed:
-            return "Task not completed"
-
+            return
         self.is_completed = False
         self.save()
-
-        users = User.objects.filter(comment__task=self).distinct()
-        users |= User.objects.filter(task=self).distinct()
-
-        task_complete.send(sender=self.__class__, users=users, task=self)
-
-        return "Task marked incomplete"
+        # task_complete.send(sender=self.__class__, task=self)
 
     def start_timer(self):
         try:

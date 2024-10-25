@@ -12,6 +12,7 @@ services:
       - minio
       - pg-hero
       - redis-db
+      - rabbitmq-broker
 #    tty: true
 #    entrypoint: bash
     volumes:
@@ -27,11 +28,21 @@ services:
     depends_on:
       - app
       - mailhog-mock
-      - rabbitmq-broker
     entrypoint: []
     command: celery -A config worker -l INFO
-    volumes:
-      - ./fixtures:/app/fixtures
+  celery-beat:
+    image: ebs-milestone-2
+    build: .
+    environment:
+      - DEBUG=false
+    env_file: .env
+    ports:
+      - "5556:5555"
+    depends_on:
+      - app
+      - mailhog-mock
+    entrypoint: [ ]
+    command: celery -A config beat -l INFO --scheduler django_celery_beat.schedulers:DatabaseScheduler
   postgres-db:
     image: postgres:latest
     environment:

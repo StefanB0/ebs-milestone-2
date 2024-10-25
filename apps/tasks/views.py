@@ -24,7 +24,7 @@ from apps.tasks.serializers import (
     TimeLogTopSerializer,
     TaskAttachmentSerializer,
 )
-from apps.tasks.signals import task_comment
+from apps.tasks.signals import task_comment, task_assigned, task_complete, task_undo
 from apps.users.models import User
 
 logger = logging.getLogger("django")
@@ -117,6 +117,7 @@ class TaskViewSet(ModelViewSet):
             return Response({"error": "Task already belongs to user"}, status=status.HTTP_400_BAD_REQUEST)
 
         task.assign_user(new_user)
+        task_assigned.send(sender=None, user=new_user, task=task)
         return Response({"message": "Task assigned successfully"})
 
     @extend_schema(
@@ -136,8 +137,36 @@ class TaskViewSet(ModelViewSet):
             return Response({"error": "Task does not exist"}, status=status.HTTP_404_NOT_FOUND)
 
         task = Task.objects.get(id=kwargs["pk"])
-        response_message = task.complete_task()
-        return Response({"message": response_message})
+        if task.is_completed:
+            return Response({"error": "Task already completed"}, status=status.HTTP_400_BAD_REQUEST)
+
+        task.complete_task()
+        task_complete.send(sender=self.__class__, task=task)
+        return Response({"message": "Task completed successfully"}, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        responses={
+            200: OpenApiResponse(
+                response=OpenApiTypes.OBJECT,
+                examples=[
+                    OpenApiExample(name="1", value={"message": "Task undone successfully"}),
+                    OpenApiExample(name="2", value={"error": "Task not yet completed"}),
+                ],
+            )
+        }
+    )
+    @action(detail=True, methods=["PATCH"], url_path="undo", serializer_class=EmptySerializer)
+    def undo_task(self, request, *args, **kwargs):
+        if not Task.objects.filter(id=kwargs["pk"]).exists():
+            return Response({"error": "Task does not exist"}, status=status.HTTP_404_NOT_FOUND)
+
+        task = Task.objects.get(id=kwargs["pk"])
+        if not task.is_completed:
+            return Response({"error": "Task not yet completed"}, status=status.HTTP_400_BAD_REQUEST)
+
+        task.undo_task()
+        task_undo.send(sender=self.__class__, task=task)
+        return Response({"message": "Task undone successfully"}, status=status.HTTP_200_OK)
 
     @extend_schema(
         responses={
