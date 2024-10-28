@@ -48,7 +48,6 @@ class Task(models.Model):
             return
         self.is_completed = False
         self.save()
-        # task_complete.send(sender=self.__class__, task=self)
 
     def start_timer(self):
         try:
@@ -70,7 +69,7 @@ class Task(models.Model):
 
 class Comment(models.Model):
     body = models.TextField()
-    task = models.ForeignKey(Task, on_delete=models.CASCADE)
+    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name="comments")
     user = models.ForeignKey(User, on_delete=models.CASCADE)
 
     def __str__(self) -> str:

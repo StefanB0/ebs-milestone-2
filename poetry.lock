@@ -493,6 +493,24 @@ asgiref = ">=3.6"
 django = ">=3.2"
 
 [[package]]
+name = "django-elasticsearch-dsl"
+version = "8.0"
+description = "Wrapper around elasticsearch-dsl-py for django models"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "django-elasticsearch-dsl-8.0.tar.gz", hash = "sha256:64ee0612ced6d57515a6b7f29f1a3e1c2eea1996a6226fc72079a95c067b27ca"},
+    {file = "django_elasticsearch_dsl-8.0-py2.py3-none-any.whl", hash = "sha256:423784a4af336d109c3763622f1edc4973664cb5154beb55b3ff9390c1e4525e"},
+]
+
+[package.dependencies]
+elasticsearch-dsl = ">=8.9.0,<9.0.0"
+six = "*"
+
+[package.extras]
+celery = ["celery (>=4.1.0)"]
+
+[[package]]
 name = "django-environ"
 version = "0.11.2"
 description = "A package that allows you to utilize 12factor inspired environment variables to configure your Django application."
@@ -1329,4 +1347,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "77347812ca8b04384d66d7509d6e5c748fbed1e52409134b90d716c169784a1a"
+content-hash = "a0da07a014cc45a710fe701c5cb5978145ed9e2be92f03d0306ea2b00163080a"

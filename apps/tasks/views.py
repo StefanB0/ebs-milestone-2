@@ -2,7 +2,8 @@ import logging
 
 from django.core.cache import cache
 from drf_spectacular.openapi import OpenApiExample, OpenApiTypes
-from drf_spectacular.utils import extend_schema, OpenApiResponse, inline_serializer
+from drf_spectacular.utils import extend_schema, OpenApiResponse, inline_serializer, OpenApiParameter
+from elasticsearch_dsl.query import Q
 from rest_framework.parsers import FormParser, MultiPartParser
 
 from rest_framework.viewsets import ModelViewSet, GenericViewSet
@@ -11,6 +12,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework import status, mixins, serializers
 
+from apps.tasks.documents import TaskDocument
 from apps.tasks.exceptions import TimeLogError
 from apps.tasks.models import Task, Comment, TimeLog, TaskAttachment
 from apps.tasks.serializers import (
@@ -275,9 +277,10 @@ class TaskViewSet(ModelViewSet):
         return Response(serializer.data)
 
 
-class CommentViewSet(mixins.CreateModelMixin, GenericViewSet):
+class CommentViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, mixins.UpdateModelMixin, GenericViewSet):
     permission_classes = [IsAuthenticated]
     serializer_class = CommentSerializer
+    queryset = Comment.objects.all()
 
     @extend_schema(
         request=CommentSerializer,
@@ -378,3 +381,73 @@ class TaskTimeLogViewSet(mixins.CreateModelMixin, GenericViewSet):
 
         response_serializer = TimeLogSerializer(top_logs, many=True)
         return Response(response_serializer.data)
+
+
+class ElasticSearchViewSet(GenericViewSet):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="title",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="Title of the task (optional)",
+            ),
+            OpenApiParameter(
+                name="description",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="Description of the task (optional)",
+            ),
+            OpenApiParameter(
+                name="comment-body",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="Body of comment associated with the task (optional)",
+            ),
+            OpenApiParameter(
+                name="limit",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="Length of the response (optional, defaults to 20)",
+            ),
+        ],
+        responses={200: "Response schema or serializer here"},
+    )
+    @action(detail=False, methods=["GET"], url_path="task", url_name="task")
+    def task_search(self, request, *args, **kwargs):
+        title = request.query_params.get("title")
+        description = request.query_params.get("description")
+        comment_body = request.query_params.get("comment-body")
+        limit = request.query_params.get("limit")
+
+        if not limit:
+            limit = 20
+
+        queries = []
+        if title:
+            queries.append(Q("match", title=title))
+        if description:
+            queries.append(Q("match", description=description))
+        if comment_body:
+            queries.append(Q("nested", path="comments", query=Q("match", comments__body=comment_body)))
+
+        if not queries:
+            return Response({"error": "No query was provided"}, status=status.HTTP_400_BAD_REQUEST)
+
+        search_query = Q("bool", must=queries)
+
+        search = TaskDocument.search()
+        search = search.query(search_query)
+        search = search.extra(track_total_hits=True)
+        search = search[:int(limit)]
+        search_result = search.execute()
+
+        search_results = [hit.to_dict() for hit in search_result]
+
+        return Response(search_results)

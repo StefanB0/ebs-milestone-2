@@ -21,13 +21,14 @@ from rest_framework.routers import SimpleRouter
 
 from apps.common.views import AdminSpectacularSwaggerView, AdminSpectacularAPIView, AdminSpectacularRedocView
 from apps.users.views import UserViewSet
-from apps.tasks.views import TaskViewSet, CommentViewSet, TaskTimeLogViewSet
+from apps.tasks.views import TaskViewSet, CommentViewSet, TaskTimeLogViewSet, ElasticSearchViewSet
 
 router = SimpleRouter()
 router.register("users", UserViewSet, basename="users")
 router.register("tasks", TaskViewSet, basename="tasks")
 router.register("comments", CommentViewSet, basename="comments")
 router.register("timelogs", TaskTimeLogViewSet, basename="timelogs")
+router.register("elasticsearch", ElasticSearchViewSet, basename="elasticsearch")
 
 urlpatterns = [
     path("admin/", admin.site.urls),

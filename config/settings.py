@@ -25,6 +25,7 @@ env = environ.Env(
     CELERY_BROKER_USER=(str, "admin"),
     CELERY_BROKER_PASSWORD=(str, "admin"),
     CELERY_BROKER_HOST=(str, "localhost"),
+    ELASTICSEARCH_HOST=(str, "localhost"),
 )
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -59,6 +60,7 @@ INSTALLED_APPS = [
     "drf_spectacular",
     "django_celery_results",
     "django_celery_beat",
+    "django_elasticsearch_dsl",
     # Local apps
     "apps.common",
     "apps.users",
@@ -304,4 +306,8 @@ CELERY_TASK_SERIALIZER = "json"
 
 # Elastic search
 
-ELASTICSEARCH_DSL_HOST = "http://elasticsearch:9200"
+ELASTICSEARCH_DSL = {
+    "default": {
+        "hosts": f"http://{env("ELASTICSEARCH_HOST")}:9200",
+    }
+}

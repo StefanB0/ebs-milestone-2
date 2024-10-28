@@ -191,8 +191,8 @@ class TestTasks(APITestCase):
         # complete already completed task
         response = self.client.patch(reverse("tasks-complete-task", args=[1]))
 
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["message"], "Task already completed")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data["error"], "Task already completed")
 
         # complete task that does not belong to user
         response = self.client.patch(reverse("tasks-complete-task", args=[6]))

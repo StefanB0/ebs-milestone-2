@@ -37,7 +37,7 @@ class CommentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Comment
-        fields = ["id", "body", "task"]
+        fields = ["id", "body", "task", "user"]
         extra_kwargs = {"user": {"default": serializers.CurrentUserDefault(), "read_only": True}}
 
 
