@@ -256,7 +256,7 @@ class TestComments(APITestCase):
 
     def test_get_comments(self) -> None:
         self.client.force_authenticate(user=self.user)
-        comment_nr = Task.objects.get(id=1).comment_set.count()
+        comment_nr = Task.objects.get(id=1).comments.count()
         response = self.client.get(reverse("tasks-comments", args=[1]))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)

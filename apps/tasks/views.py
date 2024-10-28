@@ -445,7 +445,7 @@ class ElasticSearchViewSet(GenericViewSet):
         search = TaskDocument.search()
         search = search.query(search_query)
         search = search.extra(track_total_hits=True)
-        search = search[:int(limit)]
+        search = search[: int(limit)]
         search_result = search.execute()
 
         search_results = [hit.to_dict() for hit in search_result]
