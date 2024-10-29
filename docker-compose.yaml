@@ -2,9 +2,21 @@ services:
   app:
     image: ebs-milestone-2
     build: .
-    env_file: .env
-    environment:
+    environment: &app-env
       - DEBUG=false
+      - DB_HOST=postgres-db
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=postgres
+      - DB_PORT=5432
+      - REDIS_HOST=redis-db
+      - REDIS_PORT=6379
+      - EMAIL_HOST=mailhog-mock
+      - CELERY_BROKER_USER=admin
+      - CELERY_BROKER_PASSWORD=admin
+      - CELERY_BROKER_HOST=rabbitmq-broker
+      - MINIO_HOST=minio
+      - ELASTICSEARCH_HOST=elasticsearch
     ports:
       - "8000:8000"
     depends_on:
@@ -21,9 +33,7 @@ services:
   celery:
     image: ebs-milestone-2
     build: .
-    environment:
-      - DEBUG=false
-    env_file: .env
+    environment: *app-env
     ports:
       - "5555:5555"
     depends_on:
@@ -34,9 +44,7 @@ services:
   celery-beat:
     image: ebs-milestone-2
     build: .
-    environment:
-      - DEBUG=false
-    env_file: .env
+    environment: *app-env
     ports:
       - "5556:5555"
     depends_on:
