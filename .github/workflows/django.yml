@@ -26,6 +26,7 @@ jobs:
     - name: Poetry install dependencies
       run: |
         poetry install
+        poetry shell
     - name: Pip Freeze
       run: |
         pip freeze
