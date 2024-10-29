@@ -34,6 +34,7 @@ jobs:
       - name: Run docker-compose
         uses: hoverkraft-tech/compose-action@v2.0.1
         with:
+          compose-file: "./docker-compose.yaml"
           services: "mailhog-mock rabbitmq-broker elasticsearch minio"
       - name: Run tests
         run: |
