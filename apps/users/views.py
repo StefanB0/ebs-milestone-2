@@ -141,6 +141,6 @@ class UserViewSet(mixins.RetrieveModelMixin, mixins.ListModelMixin, mixins.Updat
 
         return Response(serializer.validated_data)
 
-    @staticmethod
-    def profile_view(request, *args, **kwargs):
+    @action(detail=False, url_path="profile", url_name="profile", permission_classes=[AllowAny])
+    def profile(self, request, *args, **kwargs):
         return render(request, 'profile.html', {'user': request.user})

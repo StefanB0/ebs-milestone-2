@@ -34,7 +34,6 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("common/", include("apps.common.urls")),
     path("accounts/", include("allauth.urls")),
-    path('users/profile/', UserViewSet.profile_view, name='profile'),
 ]
 
 urlpatterns += router.urls
