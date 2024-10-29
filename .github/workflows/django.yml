@@ -44,6 +44,7 @@ jobs:
       - name: Run tests
         run: |
           source .venv/bin/activate
+          pip freeze
           sleep 20
-          python manage.py search_index --rebuild
+          python manage.py search_index --rebuild -f
           python manage.py test
