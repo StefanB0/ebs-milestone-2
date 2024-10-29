@@ -40,6 +40,8 @@ jobs:
             rabbitmq-broker 
             elasticsearch 
             minio
+      - name: Venv
+        run: source .venv/bin/activate
       - name: Elastic-Search indexes
         run: |
           sleep 20
@@ -47,5 +49,4 @@ jobs:
         # sleep is because elasticsearch refuses connections and everything crashes 
       - name: Run tests
         run: |
-          source .venv/bin/activate
           python manage.py test
