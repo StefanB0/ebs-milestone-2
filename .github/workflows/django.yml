@@ -45,6 +45,6 @@ jobs:
         run: |
           source .venv/bin/activate
           pip freeze
-          sleep 20
+          python manage.py migrate --noinput
           python manage.py search_index --rebuild -f
           python manage.py test
