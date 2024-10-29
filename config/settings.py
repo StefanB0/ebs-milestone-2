@@ -25,6 +25,8 @@ env = environ.Env(
     CELERY_BROKER_USER=(str, "admin"),
     CELERY_BROKER_PASSWORD=(str, "admin"),
     CELERY_BROKER_HOST=(str, "localhost"),
+    MINIO_HOST=(str, "localhost"),
+    MINIO_EXTERNAL_HOST=(str, "localhost"),
     ELASTICSEARCH_HOST=(str, "localhost"),
 )
 
@@ -54,6 +56,10 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     # Third party apps
+    "allauth",
+    "allauth.account",
+    "allauth.socialaccount",
+    "allauth.socialaccount.providers.github",
     "rest_framework",
     "rest_framework.authtoken",
     "corsheaders",
@@ -80,6 +86,9 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    # Third Party
+    "allauth.account.middleware.AccountMiddleware",
+
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -87,7 +96,9 @@ ROOT_URLCONF = "config.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        "DIRS": [
+            BASE_DIR / "templates/"
+        ],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -193,7 +204,8 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 AUTHENTICATION_BACKENDS = [
-    "django.contrib.auth.backends.ModelBackend",  # Keep the default backend for username support
+    "django.contrib.auth.backends.ModelBackend",
+    "allauth.account.auth_backends.AuthenticationBackend",
 ]
 
 
@@ -210,12 +222,15 @@ USE_TZ = True
 
 
 # MinIO
+STATICFILES_DIRS = [
+    BASE_DIR / "static",
+]
 
-MINIO_ENDPOINT = "minio:9000"
-MINIO_EXTERNAL_ENDPOINT = "localhost:9000"  # Default is same as MINIO_ENDPOINT
+MINIO_ENDPOINT = f"{env("MINIO_HOST")}:9000"
+MINIO_EXTERNAL_ENDPOINT = f"{env("MINIO_EXTERNAL_HOST")}:9000"  # Default is same as MINIO_ENDPOINT
 MINIO_USE_HTTPS = False
 MINIO_EXTERNAL_ENDPOINT_USE_HTTPS = False  # Default is same as MINIO_USE_HTTPS
-MINIO_REGION = "us-east-1"  # Default is set to None
+# MINIO_REGION = "us-east-1"  # Default is set to None
 MINIO_ACCESS_KEY = "admin"
 MINIO_SECRET_KEY = "admin-admin"
 MINIO_URL_EXPIRY_HOURS = timedelta(days=1)  # Default is 7 days (longest) if not defined
@@ -227,7 +242,6 @@ MINIO_PUBLIC_BUCKETS = [
     "django-backend-dev-public",
 ]
 MINIO_POLICY_HOOKS: List[Tuple[str, dict]] = []
-MEDIA_URL = "/media/"  # ignored, but it must be defined otherwise Django will throw an error.
 MINIO_MEDIA_FILES_BUCKET = "django-media-files-bucket"  # replacement for MEDIA_ROOT
 MINIO_STATIC_FILES_BUCKET = "django-static-files-bucket"  # replacement for STATIC_ROOT
 MINIO_BUCKET_CHECK_ON_SAVE = True  # Default: True // Creates bucket if missing, then save
@@ -240,10 +254,11 @@ MINIO_PRIVATE_BUCKETS.append(MINIO_MEDIA_FILES_BUCKET)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
 STATIC_URL = f"http://{MINIO_EXTERNAL_ENDPOINT}/{MINIO_STATIC_FILES_BUCKET}/"
-if not DEBUG:
-    DEFAULT_FILE_STORAGE = "django_minio_backend.models.MinioBackend"
-    STATICFILES_STORAGE = "django_minio_backend.models.MinioBackendStatic"
-    STORAGES = {"staticfiles": {"BACKEND": "django_minio_backend.models.MinioBackendStatic"}}
+DEFAULT_FILE_STORAGE = "django_minio_backend.models.MinioBackend"
+STATICFILES_STORAGE = "django_minio_backend.models.MinioBackendStatic"
+STORAGES = {"staticfiles": {"BACKEND": "django_minio_backend.models.MinioBackendStatic"}}
+
+MEDIA_URL = "/media/"  # ignored, but it must be defined otherwise Django will throw an error.
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
@@ -309,5 +324,22 @@ CELERY_TASK_SERIALIZER = "json"
 ELASTICSEARCH_DSL = {
     "default": {
         "hosts": f"http://{env("ELASTICSEARCH_HOST")}:9200",
+    }
+}
+
+# AllAuth
+
+SITE_ID = 1
+ACCOUNT_LOGOUT_ON_GET = True
+LOGIN_REDIRECT_URL = '/users/profile/'
+LOGOUT_REDIRECT_URL = '/users/profile/'
+
+SOCIALACCOUNT_PROVIDERS = {
+    "github": {
+        "VERIFIED_EMAIL": True,
+        "APPS": [
+            {"client_id": "Ov23lid38oh548eaveU6", "secret": "3946a3538d5953624eca0efb405cae3599275c1e", "key": ""},
+        ],
+        'SCOPE': ['user'],
     }
 }

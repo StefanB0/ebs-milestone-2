@@ -27,6 +27,7 @@ django-minio-backend = "^3.7.2"
 django-celery-beat = "^2.7.0"
 django-elasticsearch-dsl = "^8.0"
 elasticsearch-dsl = "^8.15.4"
+django-allauth = {extras = ["socialaccount"], version = "^65.1.0"}
 
 
 [tool.poetry.group.dev.dependencies]

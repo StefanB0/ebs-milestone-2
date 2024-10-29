@@ -10,6 +10,7 @@ from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework import status, serializers
 
+from django.shortcuts import render
 
 from apps.users.serializers import UserSerializer, UserRegisterSerializer, UserLoginSerializer, UserPreviewSerializer
 
@@ -139,3 +140,7 @@ class UserViewSet(mixins.RetrieveModelMixin, mixins.ListModelMixin, mixins.Updat
             raise InvalidToken(e.args[0])
 
         return Response(serializer.validated_data)
+
+    @staticmethod
+    def profile_view(request, *args, **kwargs):
+        return render(request, 'profile.html', {'user': request.user})

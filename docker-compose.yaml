@@ -27,7 +27,7 @@ services:
     ports:
       - "5555:5555"
     depends_on:
-      - app
+      - rabbitmq-broker
       - mailhog-mock
     entrypoint: []
     command: celery -A config worker -l INFO
@@ -40,7 +40,7 @@ services:
     ports:
       - "5556:5555"
     depends_on:
-      - app
+      - rabbitmq-broker
       - mailhog-mock
     entrypoint: [ ]
     command: celery -A config beat -l INFO --scheduler django_celery_beat.schedulers:DatabaseScheduler

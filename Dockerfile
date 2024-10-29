@@ -21,6 +21,8 @@ ENV PATH="/app/.venv/bin:$PATH"
 COPY ./config ./config
 COPY ./manage.py ./manage.py
 COPY ./apps ./apps
+COPY ./templates ./templates
+COPY ./static ./static
 
 EXPOSE 8000
 
