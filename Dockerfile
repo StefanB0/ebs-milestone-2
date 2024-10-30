@@ -38,9 +38,10 @@ ENTRYPOINT bash -c " \
     gunicorn config.wsgi:application --bind 0.0.0.0:8000"
 
 
-# python manage.py search_index --rebuild -f || true && \
-# python manage.py runserver 0.0.0.0:8000"
-# gunicorn config.wsgi:application --bind 0.0.0.0:8000
-
-#CMD [ "python",  "manage.py", "runserver", "0.0.0.0:8000"]
-
+#    python manage.py db-populate-users 5 || true && \
+#    python manage.py db-populate-tasks 1000 || true && \
+#    python manage.py db-populate-time-logs 1000 || true && \
+#
+#    python manage.py search_index --rebuild -f || true && \
+#    python manage.py runserver 0.0.0.0:8000"
+#    gunicorn config.wsgi:application --bind 0.0.0.0:8000
