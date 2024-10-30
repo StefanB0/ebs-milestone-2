@@ -66,7 +66,6 @@ INSTALLED_APPS = [
     "drf_spectacular",
     "django_celery_results",
     "django_celery_beat",
-    "django_elasticsearch_dsl",
     # Local apps
     "apps.common",
     "apps.users",
@@ -75,6 +74,7 @@ INSTALLED_APPS = [
 
 if not DEBUG:
     INSTALLED_APPS.append("django_minio_backend")
+    INSTALLED_APPS.append("django_elasticsearch_dsl")
 
 MIDDLEWARE = [
     # Default Django middleware

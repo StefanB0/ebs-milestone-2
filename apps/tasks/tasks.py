@@ -5,6 +5,7 @@ from django.conf import settings
 
 from celery import shared_task
 from celery.schedules import crontab
+from django.db.models import Sum
 
 from apps.tasks.models import Task
 from apps.tasks.serializers import TaskPreviewSerializer
@@ -42,7 +43,7 @@ def send_weekly_report():
     users = User.objects.all()
 
     for user in users:
-        tasks = Task.objects.filter(user=user).order_by("timelog__duration")[:20]
+        tasks = Task.objects.filter(user=user).annotate(time_a=Sum("timelog__duration")).order_by("-time_a")[:20]
         serializer = TaskPreviewSerializer(tasks, many=True)
         message = "Top Tasks by time:\n"
         count = 0

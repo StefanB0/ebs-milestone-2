@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            color: #ffffff;
+            background-color: #181d27;
+            margin: 0;
+            padding: 20px;
+        }
+        h2 {
+            color: #51be95;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background-color: #092e20;
+            color: #ffffff;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        th, td {
+            padding: 10px;
+            border: 2px solid #307159;
+            text-align: left;
+        }
+        th {
+            background-color: #51be95;
+            font-weight: bold;
+            color: #ffffff;
+        }
+        tr:nth-child(even) {
+            background-color: #252d3d;
+        }
+        tr:nth-child(odd) {
+            background-color: #0e1117;
+        }
+    </style>
+</head>
+<body>
+    <h2>Top Tasks by Time</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Id</th>
+                <th>Title</th>
+                <th>Time Spent</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for task in tasks %}
+                <tr>
+                    <td>{{ forloop.counter }}</td>
+                    <td>{{ task.id }}</td>
+                    <td>{{ task.title }}</td>
+                    <td>{{ task.time_spent }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>
