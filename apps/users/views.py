@@ -2,7 +2,7 @@ from django.db.models import Sum
 
 from apps.tasks.models import Task
 from apps.users.models import User
-from drf_spectacular.utils import extend_schema, OpenApiResponse, inline_serializer
+from drf_spectacular.utils import extend_schema, OpenApiResponse, inline_serializer, F
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -151,7 +151,8 @@ class UserViewSet(mixins.RetrieveModelMixin, mixins.ListModelMixin, mixins.Updat
     @action(detail=True, url_path="top-tasks", url_name="top-tasks")
     def top_tasks(self, request, *args, **kwargs):
         tasks = (
-            Task.objects.filter(user=kwargs["pk"]).annotate(time_a=Sum("timelog__duration")).order_by("-time_a")[:20]
+            Task.objects.filter(user=kwargs["pk"])
+            .annotate(time_a=Sum("timelog__duration"))
+            .order_by(F("time_a").desc(nulls_last=True))[:20]
         )
-        context = {"tasks": tasks}
-        return render(request, "tasks/tasks_email.html", context)
+        return render(request, "tasks/tasks_email.html", {"tasks": tasks})
