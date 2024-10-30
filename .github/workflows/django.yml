@@ -13,5 +13,4 @@ jobs:
         with:
           compose-file: "./docker-compose.yaml"
       - name: Execute tests in the running services
-        run: |
-          docker-compose exec app python manage.py test
+        run: docker compose exec app python manage.py test
