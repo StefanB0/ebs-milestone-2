@@ -41,9 +41,16 @@ line-length = 120
 
 [tool.coverage.run]
 omit = [
-    # omit django default files
+    "**/admin.py",
     "config/*",
     "apps/common/*",
     "manage.py",
+    "apps/tasks/tasks.py", # celery tasks are not executed in the same shell that runs the tests
+    "def __str__",
+    "def __str__(self) -> str:",
+    ]
+
+[tool.coverage.report]
+exclude_also  = [
     "def __str__",
     ]
