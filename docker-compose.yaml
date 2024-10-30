@@ -20,12 +20,23 @@ services:
     ports:
       - "8000:8000"
     depends_on:
-      - postgres-db
-      - minio
-      - pg-hero
-      - redis-db
-      - rabbitmq-broker
-      - elasticsearch
+      elasticsearch:
+        condition: service_healthy
+      postgres-db:
+        condition: service_started
+      minio:
+        condition: service_started
+      pg-hero:
+        condition: service_started
+      redis-db:
+        condition: service_started
+      rabbitmq-broker:
+        condition: service_started
+    healthcheck:
+      test: [ "CMD-SHELL", "python manage.py healthcheck" ]
+      interval: 10s
+      timeout: 5s
+      retries: 20
 #    tty: true
 #    entrypoint: bash
     volumes:
@@ -37,8 +48,14 @@ services:
     ports:
       - "5555:5555"
     depends_on:
-      - rabbitmq-broker
-      - mailhog-mock
+      app:
+        condition: service_started
+      elasticsearch:
+        condition: service_healthy
+      rabbitmq-broker:
+        condition: service_started
+      mailhog-mock:
+        condition: service_started
     entrypoint: []
     command: celery -A config worker -l INFO
   celery-beat:
@@ -48,8 +65,14 @@ services:
     ports:
       - "5556:5555"
     depends_on:
-      - rabbitmq-broker
-      - mailhog-mock
+      app:
+        condition: service_started
+      elasticsearch:
+        condition: service_healthy
+      rabbitmq-broker:
+        condition: service_started
+      mailhog-mock:
+        condition: service_started
     entrypoint: [ ]
     command: celery -A config beat -l INFO --scheduler django_celery_beat.schedulers:DatabaseScheduler
   postgres-db:
@@ -110,6 +133,11 @@ services:
       - xpack.security.enabled=false
     ports:
       - "9200:9200"
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 40
   kibana:
     image: docker.elastic.co/kibana/kibana:8.6.1
     environment:
@@ -117,6 +145,7 @@ services:
     ports:
       - "5601:5601"
     depends_on:
-      - elasticsearch
+      elasticsearch:
+        condition: service_healthy
 volumes:
   data:

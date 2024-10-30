@@ -143,4 +143,4 @@ class UserViewSet(mixins.RetrieveModelMixin, mixins.ListModelMixin, mixins.Updat
 
     @action(detail=False, url_path="profile", url_name="profile", permission_classes=[AllowAny])
     def profile(self, request, *args, **kwargs):
-        return render(request, 'profile.html', {'user': request.user})
+        return render(request, "profile.html", {"user": request.user})

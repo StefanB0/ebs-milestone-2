@@ -28,11 +28,13 @@ django-celery-beat = "^2.7.0"
 django-elasticsearch-dsl = "^8.0"
 elasticsearch-dsl = "^8.15.4"
 django-allauth = {extras = ["socialaccount"], version = "^65.1.0"}
+requests = "^2.32.3"
 
 
 [tool.poetry.group.dev.dependencies]
 coverage = "^7.6.3"
 ruff = "^0.6.9"
+pre-commit = "^4.0.1"
 
 [tool.ruff]
 line-length = 120

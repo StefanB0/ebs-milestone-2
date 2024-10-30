@@ -88,7 +88,6 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     # Third Party
     "allauth.account.middleware.AccountMiddleware",
-
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -96,9 +95,7 @@ ROOT_URLCONF = "config.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [
-            BASE_DIR / "templates/"
-        ],
+        "DIRS": [BASE_DIR / "templates/"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -331,8 +328,8 @@ ELASTICSEARCH_DSL = {
 
 SITE_ID = 1
 ACCOUNT_LOGOUT_ON_GET = True
-LOGIN_REDIRECT_URL = '/users/profile/'
-LOGOUT_REDIRECT_URL = '/users/profile/'
+LOGIN_REDIRECT_URL = "/users/profile/"
+LOGOUT_REDIRECT_URL = "/users/profile/"
 
 SOCIALACCOUNT_PROVIDERS = {
     "github": {
@@ -340,6 +337,6 @@ SOCIALACCOUNT_PROVIDERS = {
         "APPS": [
             {"client_id": "Ov23lid38oh548eaveU6", "secret": "3946a3538d5953624eca0efb405cae3599275c1e", "key": ""},
         ],
-        'SCOPE': ['user'],
+        "SCOPE": ["user"],
     }
 }
