@@ -2,6 +2,7 @@ import datetime
 import logging
 
 from django.core import mail
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 from django.utils import timezone
 
@@ -9,7 +10,7 @@ from rest_framework import status
 from rest_framework.test import APIClient, APITestCase
 
 from apps.users.models import User
-from apps.tasks.models import Task, Comment, TimeLog
+from apps.tasks.models import Task, Comment, TimeLog, TaskAttachment
 from apps.tasks.serializers import TaskSerializer, CommentSerializer, TimeLogSerializer
 
 
@@ -533,3 +534,53 @@ class TestTimeLog(APITestCase):
         TimeLog.objects.all().delete()
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response2.data), 5)
+
+
+class TestMinIO(APITestCase):
+    fixtures = ["fixtures/users", "fixtures/tasks"]
+
+    def setUp(self) -> None:
+        self.mock_photo_prefix = "static/mock/"
+        self.photos = ["Duck_" + str(i) + ".png" for i in range(1, 10)]
+
+        logging.disable(logging.CRITICAL)
+        self.client = APIClient()
+        self.user = User.objects.get(pk=1)
+        self.tasks = TaskSerializer(Task.objects.all(), many=True).data
+
+    def test_task_attachment_creation(self):
+        self.client.force_authenticate(user=self.user)
+
+        task = Task.objects.first()
+        file = SimpleUploadedFile(self.mock_photo_prefix + self.photos[0], b"file_content", content_type="image/png")
+        attachment = TaskAttachment.objects.create(task=task, file=file)
+
+        # Assertions
+        self.assertEqual(attachment.task, task)
+        self.assertTrue(self.photos[0].split(".")[0] in attachment.file.name, str(attachment.file.name))
+
+    def test_upload_attachment(self):
+        self.client.force_authenticate(user=self.user)
+
+        task = Task.objects.first()
+        url = f"/tasks/{task.id}/upload_attachment/"
+        file = SimpleUploadedFile(self.photos[0], b"file_content", content_type="image/png")
+        response = self.client.post(url, {"file": file}, format="multipart")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertIn("attach_id", response.data)
+        self.assertIn("task_id:", response.data)
+
+    def test_get_attachments(self):
+        self.client.force_authenticate(user=self.user)
+
+        task = Task.objects.first()
+        TaskAttachment.objects.create(
+            task=task, file=SimpleUploadedFile(self.photos[1], b"file_content", content_type="image/png")
+        )
+
+        url = f"/tasks/{task.id}/attachments/"
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertGreaterEqual(len(response.data), 1)
