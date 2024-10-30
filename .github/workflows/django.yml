@@ -1,23 +1,19 @@
 name: Django CI
 
-on: [push, pull_request]
+on: [pull_request]
 
 jobs:
   ruff-lint:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v3
-
+        uses: actions/checkout@v4
       - name: Install Ruff
         run: pip install ruff
-
       - name: Run Ruff Format
         run: ruff format .
-
       - name: Run Ruff Check and Fix
         run: ruff check . --fix
-
       - name: Commit Files
         run: |
           git config --local user.name "github-actions[bot]"
