@@ -1,20 +1,25 @@
 x-milestone-django-app: &x-milestone-django-app
     image: ebs-milestone-2
     build: .
-    environment: &app-env
+    environment:
       - DEBUG=false
+      - DB_DEFAULT_ENGINE=postgresql
       - DB_HOST=postgres-db
       - DB_USER=postgres
       - DB_PASSWORD=postgres
       - DB_NAME=postgres
       - DB_PORT=5432
-      - REDIS_HOST=redis-db
-      - REDIS_PORT=6379
+      - CACHE_DEFAULT_BACKEND=redis
+      - CACHE_HOST=redis-db
+      - CACHE_PORT=6379
       - EMAIL_HOST=mailhog-mock
+      - CELERY_ACTIVE=true
       - CELERY_BROKER_USER=admin
       - CELERY_BROKER_PASSWORD=admin
       - CELERY_BROKER_HOST=rabbitmq-broker
-      - MINIO_HOST=minio
+      - S3_BACKEND=minio
+      - S3_HOST=minio
+      - ELASTICSEARCH_ACTIVE=false
       - ELASTICSEARCH_HOST=elasticsearch
     volumes:
       - ./fixtures:/app/fixtures
