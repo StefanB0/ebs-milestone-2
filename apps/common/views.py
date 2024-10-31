@@ -1,6 +1,5 @@
-from drf_spectacular.views import SpectacularSwaggerView, SpectacularAPIView, SpectacularRedocView
 from rest_framework.generics import GenericAPIView
-from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser
+from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework import status
@@ -24,21 +23,3 @@ class ProtectedTestView(GenericAPIView):
     @staticmethod
     def get(request: Request) -> Response:
         return Response({"live": True})
-
-
-class AdminSpectacularSwaggerView(SpectacularSwaggerView):
-    permission_classes = [IsAdminUser, IsAuthenticated]
-    # SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
-    pass
-
-
-class AdminSpectacularAPIView(SpectacularAPIView):
-    permission_classes = [IsAdminUser, IsAuthenticated]
-    # SpectacularAPIView.as_view(), name="schema"),
-    pass
-
-
-class AdminSpectacularRedocView(SpectacularRedocView):
-    permission_classes = [IsAdminUser, IsAuthenticated]
-    # SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
-    pass

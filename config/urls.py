@@ -18,8 +18,8 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 from rest_framework.routers import SimpleRouter
+from drf_spectacular.views import SpectacularSwaggerView, SpectacularAPIView, SpectacularRedocView
 
-from apps.common.views import AdminSpectacularSwaggerView, AdminSpectacularAPIView, AdminSpectacularRedocView
 from apps.users.views import UserViewSet
 from apps.tasks.views import TaskViewSet, CommentViewSet, TaskTimeLogViewSet, ElasticSearchViewSet
 
@@ -40,8 +40,8 @@ urlpatterns += router.urls
 
 urlpatterns.extend(
     [
-        path("", AdminSpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
-        path("schema", AdminSpectacularAPIView.as_view(), name="schema"),
-        path("redoc", AdminSpectacularRedocView.as_view(url_name="schema"), name="redoc"),
+        path("", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
+        path("schema", SpectacularAPIView.as_view(), name="schema"),
+        path("redoc", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
     ]
 )

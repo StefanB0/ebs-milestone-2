@@ -267,6 +267,7 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "EBS Internship Test API",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": True,
+    "SERVE_PERMISSIONS": ["rest_framework.permissions.IsAdminUser", "rest_framework.permissions.IsAuthenticated"],
 }
 
 # Email settings
