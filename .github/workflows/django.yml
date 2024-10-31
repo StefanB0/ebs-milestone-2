@@ -1,6 +1,6 @@
 name: Django CI
 
-on: [pull_request, on_push]
+on: [pull_request, push]
 
 jobs:
   ruff-lint:
