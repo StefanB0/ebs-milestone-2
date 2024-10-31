@@ -1,5 +1,4 @@
-services:
-  app:
+x-milestone-django-app: &x-milestone-django-app
     image: ebs-milestone-2
     build: .
     environment: &app-env
@@ -17,6 +16,12 @@ services:
       - CELERY_BROKER_HOST=rabbitmq-broker
       - MINIO_HOST=minio
       - ELASTICSEARCH_HOST=elasticsearch
+    volumes:
+      - ./fixtures:/app/fixtures
+
+services:
+  app:
+    <<: *x-milestone-django-app
     ports:
       - "8000:8000"
     depends_on:
@@ -39,12 +44,9 @@ services:
       retries: 20
 #    tty: true
 #    entrypoint: bash
-    volumes:
-      - ./fixtures:/app/fixtures
+
   celery:
-    image: ebs-milestone-2
-    build: .
-    environment: *app-env
+    <<: *x-milestone-django-app
     ports:
       - "5555:5555"
     depends_on:
@@ -58,10 +60,9 @@ services:
         condition: service_started
     entrypoint: []
     command: celery -A config worker -l INFO
+
   celery-beat:
-    image: ebs-milestone-2
-    build: .
-    environment: *app-env
+    <<: *x-milestone-django-app
     ports:
       - "5556:5555"
     depends_on:
@@ -75,6 +76,7 @@ services:
         condition: service_started
     entrypoint: [ ]
     command: celery -A config beat -l INFO --scheduler django_celery_beat.schedulers:DatabaseScheduler
+
   postgres-db:
     image: postgres:latest
     environment:
@@ -86,6 +88,7 @@ services:
     command: postgres -c shared_preload_libraries=pg_stat_statements
     volumes:
       - ./postgres://docker-entrypoint-initdb.d
+
   pg-hero:
     image: ankane/pghero:latest
     environment:
@@ -95,12 +98,14 @@ services:
     depends_on:
       - postgres-db
     tty: true
+
   redis-db:
     image: redis:latest
     ports:
       - "6379:6379"
     volumes:
       - ./local/db-data/redis-db:/data/redis
+
   minio:
     image: minio/minio:latest
     container_name: minio
@@ -113,11 +118,13 @@ services:
       - "MINIO_ROOT_USER=admin"
       - "MINIO_ROOT_PASSWORD=admin-admin"
     command: server /data --console-address :9001
+
   mailhog-mock:
     image: mailhog/mailhog
     ports:
       - "1025:1025" # SMTP port
       - "8025:8025" # Dashboard
+
   rabbitmq-broker:
     image: rabbitmq
     ports:
@@ -126,6 +133,7 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: admin
       RABBITMQ_DEFAULT_PASS: admin
+
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.15.3
     environment:
@@ -138,6 +146,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 40
+
   kibana:
     image: docker.elastic.co/kibana/kibana:8.6.1
     environment:
@@ -147,5 +156,6 @@ services:
     depends_on:
       elasticsearch:
         condition: service_healthy
+
 volumes:
   data:
