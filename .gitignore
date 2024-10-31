@@ -167,5 +167,6 @@ cython_debug/
 # TO_DO FILE
 TODO.md
 
-# Temporary files folder
+# Temporary files
 temp/
+media/
