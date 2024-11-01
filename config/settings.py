@@ -34,7 +34,7 @@ env = environ.Env(
     CELERY_BROKER_USER=(str, "admin"),
     CELERY_BROKER_PASSWORD=(str, "admin"),
     CELERY_BROKER_HOST=(str, "localhost"),
-    S3_BACKEND=(str, "minio"),  # options: none, minio
+    S3_BACKEND=(str, "none"),  # options: none, minio
     S3_HOST=(str, "localhost"),
     S3_EXTERNAL_HOST=(str, "localhost"),
     ELASTICSEARCH_ACTIVE=(bool, False),
@@ -86,7 +86,7 @@ INSTALLED_APPS = [
     "apps.tasks",
 ]
 
-if "minio" in env("S3_HOST"):
+if env("S3_BACKEND") == "minio":
     INSTALLED_APPS.append("django_minio_backend")
 
 if env("ELASTICSEARCH_ACTIVE"):
