@@ -247,6 +247,9 @@ MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
 if env("S3_BACKEND") == "minio":
+    STATICFILES_STORAGE = "django_minio_backend.models.MinioBackendStatic"
+    DEFAULT_FILE_STORAGE = "django_minio_backend.models.MinioBackend"
+
     MINIO_ACCESS_KEY = "admin"
     MINIO_SECRET_KEY = "admin-admin"
     MINIO_CONSISTENCY_CHECK_ON_START = False

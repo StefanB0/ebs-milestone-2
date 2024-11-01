@@ -113,18 +113,21 @@ services:
 
   minio:
     image: minio/minio:latest
-    container_name: minio
     ports:
-      - "9000:9000" # MinIO port
-      - "9001:9001" # MinIO dashboard
-    volumes:
-      - data:/data
+      - "9000:9000"
+      - "9001:9001"
     environment:
-      - "MINIO_ROOT_USER=admin"
-      - "MINIO_ROOT_PASSWORD=admin-admin"
-    command: server /data --console-address :9001
+      - MINIO_ROOT_USER=admin
+      - MINIO_ROOT_PASSWORD=admin-admin
+    command:
+      - server
+      - --address=0.0.0.0:9000
+      - --console-address=0.0.0.0:9001
+      - /data
     healthcheck:
       test: [ "CMD", "mc", "ready", "local" ]
+    volumes:
+      - data:/data
 
   minio_setup:
     image: minio/mc:latest
