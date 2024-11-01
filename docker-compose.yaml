@@ -123,6 +123,21 @@ services:
       - "MINIO_ROOT_USER=admin"
       - "MINIO_ROOT_PASSWORD=admin-admin"
     command: server /data --console-address :9001
+    healthcheck:
+      test: [ "CMD", "mc", "ready", "local" ]
+
+  minio_setup:
+    image: minio/mc:latest
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        mc alias set s3local http://minio:9000 admin admin-admin
+        mc ls s3local/django-media-files-bucket || (mc mb s3local/django-media-files-bucket && mc anonymous set public s3local/django-media-files-bucket)
+        mc ls s3local/django-static-files-bucket || (mc mb s3local/django-static-files-bucket && mc anonymous set public s3local/django-static-files-bucket)
+    depends_on:
+      minio:
+        condition: service_healthy
 
   mailhog-mock:
     image: mailhog/mailhog
