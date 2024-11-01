@@ -23,7 +23,7 @@ def setup_periodic_tasks(sender, **kwargs):
 
 
 def send_mail_wrapper(recipient, subject, message, html_message=None):
-    if settings.EMAIL_BACKEND == "django.core.mail.backends.smtp.EmailBackend":
+    if settings.CELERY_ACTIVE:
         c_send_mail.delay(recipient, subject, message, html_message)
     else:
         send_mail(subject, message, None, recipient, fail_silently=False)

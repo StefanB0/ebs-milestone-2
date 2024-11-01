@@ -17,18 +17,32 @@ from pathlib import Path
 from typing import List, Tuple
 from datetime import timedelta
 
-
 # Django-environ
 env = environ.Env(
+    DB_DEFAULT_ENGINE=(str, "sqlite3"),  # options: sqlite3, postgresql
+    DB_HOST=(str, "localhost"),
+    DB_USER=(str, "postgres"),
+    DB_PASSWORD=(str, "postgres"),
+    DB_NAME=(str, "postgres"),
+    DB_PORT=(int, 5432),
+    CACHE_DEFAULT_BACKEND=(str, "none"),  # options: none, redis
+    CACHE_HOST=(str, "localhost"),
+    CACHE_PORT=(int, 6379),
     EMAIL_HOST=(str, "localhost"),
     EMAIL_BACKEND=(str, "django.core.mail.backends.smtp.EmailBackend"),
+    CELERY_ACTIVE=(bool, False),
     CELERY_BROKER_USER=(str, "admin"),
     CELERY_BROKER_PASSWORD=(str, "admin"),
     CELERY_BROKER_HOST=(str, "localhost"),
-    MINIO_HOST=(str, "localhost"),
-    MINIO_EXTERNAL_HOST=(str, "localhost"),
+    S3_BACKEND=(str, "minio"),  # options: none, minio
+    S3_HOST=(str, "localhost"),
+    S3_EXTERNAL_HOST=(str, "localhost"),
+    ELASTICSEARCH_ACTIVE=(bool, False),
     ELASTICSEARCH_HOST=(str, "localhost"),
 )
+
+# MINIO -> S3
+# Redis -> cache
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -64,17 +78,22 @@ INSTALLED_APPS = [
     "rest_framework.authtoken",
     "corsheaders",
     "drf_spectacular",
-    "django_celery_results",
-    "django_celery_beat",
     # Local apps
     "apps.common",
     "apps.users",
     "apps.tasks",
 ]
 
-if not DEBUG:
+if env("CELERY_ACTIVE"):
+    INSTALLED_APPS.append("django_celery_results")
+    INSTALLED_APPS.append("django_celery_beat")
+
+if "minio" in env("S3_HOST"):
     INSTALLED_APPS.append("django_minio_backend")
+
+if env("ELASTICSEARCH_ACTIVE"):
     INSTALLED_APPS.append("django_elasticsearch_dsl")
+
 
 MIDDLEWARE = [
     # Default Django middleware
@@ -145,40 +164,43 @@ REST_FRAMEWORK = {
 
 # Parse database connection url strings like psql://user:pass@127.0.0.1:8458/db
 
-if DEBUG:
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "db.sqlite3",
-        }
-    }
-else:
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.postgresql",
-            "NAME": env("DB_NAME"),
-            "USER": env("DB_USER"),
-            "PASSWORD": env("DB_PASSWORD"),
-            "HOST": env("DB_HOST"),
-            "PORT": env("DB_PORT"),
-        }
-    }
+database_setups = {
+    "postgresql": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": env("DB_NAME"),
+        "USER": env("DB_USER"),
+        "PASSWORD": env("DB_PASSWORD"),
+        "HOST": env("DB_HOST"),
+        "PORT": env("DB_PORT"),
+    },
+    "sqlite3": {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": BASE_DIR / "db.sqlite3",
+    },
+}
+
+DATABASES = {
+    "default": database_setups[env("DB_DEFAULT_ENGINE")],
+}
 
 # Cache
+cache_setups = {
+    "none": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "unique-snowflake",
+    },
+    "redis": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": f"redis://{env("CACHE_HOST")}:{env("CACHE_PORT")}/1",
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        },
+    },
+}
 
-# Redis Cache
-if not DEBUG:
-    redis_host = env("REDIS_HOST")
-    redis_port = env("REDIS_PORT")
-    CACHES = {
-        "default": {
-            "BACKEND": "django_redis.cache.RedisCache",
-            "LOCATION": f"redis://{redis_host}:{redis_port}/1",
-            "OPTIONS": {
-                "CLIENT_CLASS": "django_redis.client.DefaultClient",
-            },
-        }
-    }
+CACHES = {
+    "default": cache_setups[env("CACHE_DEFAULT_BACKEND")],
+}
 
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
@@ -217,45 +239,48 @@ USE_I18N = True
 
 USE_TZ = True
 
-
-# MinIO
-STATICFILES_DIRS = [
-    BASE_DIR / "static",
-]
-
-MINIO_ENDPOINT = f"{env("MINIO_HOST")}:9000"
-MINIO_EXTERNAL_ENDPOINT = f"{env("MINIO_EXTERNAL_HOST")}:9000"  # Default is same as MINIO_ENDPOINT
-MINIO_USE_HTTPS = False
-MINIO_EXTERNAL_ENDPOINT_USE_HTTPS = False  # Default is same as MINIO_USE_HTTPS
-# MINIO_REGION = "us-east-1"  # Default is set to None
-MINIO_ACCESS_KEY = "admin"
-MINIO_SECRET_KEY = "admin-admin"
-MINIO_URL_EXPIRY_HOURS = timedelta(days=1)  # Default is 7 days (longest) if not defined
-MINIO_CONSISTENCY_CHECK_ON_START = False
-MINIO_PRIVATE_BUCKETS = [
-    "django-backend-dev-private",
-]
-MINIO_PUBLIC_BUCKETS = [
-    "django-backend-dev-public",
-]
-MINIO_POLICY_HOOKS: List[Tuple[str, dict]] = []
-MINIO_MEDIA_FILES_BUCKET = "django-media-files-bucket"  # replacement for MEDIA_ROOT
-MINIO_STATIC_FILES_BUCKET = "django-static-files-bucket"  # replacement for STATIC_ROOT
-MINIO_BUCKET_CHECK_ON_SAVE = True  # Default: True // Creates bucket if missing, then save
-
-
-MINIO_PRIVATE_BUCKETS.append(MINIO_STATIC_FILES_BUCKET)
-MINIO_PRIVATE_BUCKETS.append(MINIO_MEDIA_FILES_BUCKET)
-
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
-STATIC_URL = f"http://{MINIO_EXTERNAL_ENDPOINT}/{MINIO_STATIC_FILES_BUCKET}/"
-DEFAULT_FILE_STORAGE = "django_minio_backend.models.MinioBackend"
-STATICFILES_STORAGE = "django_minio_backend.models.MinioBackendStatic"
-STORAGES = {"staticfiles": {"BACKEND": "django_minio_backend.models.MinioBackendStatic"}}
+STATIC_ROOT = BASE_DIR / "static"
+STATICFILES_DIRS = []
 
-MEDIA_URL = "/media/"  # ignored, but it must be defined otherwise Django will throw an error.
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
+
+if env("S3_BACKEND") == "minio":
+    MINIO_ACCESS_KEY = "admin"
+    MINIO_SECRET_KEY = "admin-admin"
+    MINIO_CONSISTENCY_CHECK_ON_START = False
+    MINIO_BUCKET_CHECK_ON_SAVE = True  # Default: True // Creates bucket if missing, then save
+    MINIO_URL_EXPIRY_HOURS = timedelta(days=1)  # Default is 7 days (longest) if not defined
+    MINIO_POLICY_HOOKS: List[Tuple[str, dict]] = []
+
+    MINIO_MEDIA_FILES_BUCKET = "django-media-files-bucket"  # replacement for MEDIA_ROOT
+    MINIO_STATIC_FILES_BUCKET = "django-static-files-bucket"  # replacement for STATIC_ROOT
+
+    MINIO_PRIVATE_BUCKETS = []
+    MINIO_PUBLIC_BUCKETS = [MINIO_MEDIA_FILES_BUCKET, MINIO_STATIC_FILES_BUCKET]
+
+    MINIO_ENDPOINT = f"{env("S3_HOST")}:9000"
+    MINIO_USE_HTTPS = False
+    MINIO_EXTERNAL_ENDPOINT = f"{env("S3_EXTERNAL_HOST")}:9000"  # Default is same as MINIO_ENDPOINT
+    MINIO_EXTERNAL_ENDPOINT_USE_HTTPS = False  # Default is same as MINIO_USE_HTTPS
+
+    STATIC_URL = f"http://{MINIO_EXTERNAL_ENDPOINT}/{MINIO_STATIC_FILES_BUCKET}/"
+
+    STORAGES = {
+        "staticfiles": {
+            "BACKEND": "django_minio_backend.models.MinioBackendStatic",
+        },
+        "default": {
+            "BACKEND": "django_minio_backend.models.MinioBackend",
+        },
+    }
+else:
+    STATIC_URL = "/static/"
+    SESSION_ENGINE = "django.contrib.sessions.backends.cache"
+
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
@@ -309,13 +334,16 @@ LOGGING = {
 celery_broker_user = env("CELERY_BROKER_USER")
 celery_broker_pass = env("CELERY_BROKER_PASSWORD")
 celery_broker_host = env("CELERY_BROKER_HOST")
-CELERY_BROKER_URL = f"pyamqp://{celery_broker_user}:{celery_broker_pass}@{celery_broker_host}"
-CELERY_CACHE_BACKEND = "default"
 
-CELERY_ACCEPT_CONTENT = ["json"]
-CELERY_RESULT_BACKEND = "django-db"
+CELERY_ACTIVE = env("CELERY_ACTIVE")
+if CELERY_ACTIVE:
+    CELERY_BROKER_URL = f"pyamqp://{celery_broker_user}:{celery_broker_pass}@{celery_broker_host}"
+    CELERY_CACHE_BACKEND = "default"
 
-CELERY_TASK_SERIALIZER = "json"
+    CELERY_ACCEPT_CONTENT = ["json"]
+    CELERY_RESULT_BACKEND = "django-db"
+
+    CELERY_TASK_SERIALIZER = "json"
 
 # Elastic search
 
