@@ -2,7 +2,7 @@ import random
 
 from django.core.management import BaseCommand
 
-from apps.tasks.tasks import send_mail_wrapper
+from apps.tasks.tasks import c_send_mail
 from apps.users.models import User
 
 
@@ -21,7 +21,7 @@ class Command(BaseCommand):
 
         for i in range(email_nr):
             user = random.choice(user_list)
-            send_mail_wrapper(
+            c_send_mail.delay(
                 [user.email],
                 f"Email Nr {i}",
                 "QWERTY-QWERTY-QWERTY-QWERTY-QWERTY\n"

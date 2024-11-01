@@ -1,7 +1,6 @@
 from smtplib import SMTPException
 
 from django.core.mail import send_mail
-from django.conf import settings
 
 from celery import shared_task
 from celery.schedules import crontab
@@ -20,13 +19,6 @@ def setup_periodic_tasks(sender, **kwargs):
     sender.add_periodic_task(
         crontab(hour=7, minute=30, day_of_week=1), send_weekly_report.s(), name="Weekly Task Report"
     )
-
-
-def send_mail_wrapper(recipient, subject, message, html_message=None):
-    if settings.CELERY_ACTIVE:
-        c_send_mail.delay(recipient, subject, message, html_message)
-    else:
-        send_mail(subject, message, None, recipient, fail_silently=False)
 
 
 @shared_task(bind=True, max_retries=5, default_retry_delay=30)
@@ -56,4 +48,4 @@ def send_weekly_report():
         for task in serializer.data:
             count += 1
             message += f"{count}. Id: {task["id"]}, Title: {task["title"]}, Time spent: {task["time_spent"]}\n"
-        send_mail_wrapper([user.email], subject, message, message_html)
+        c_send_mail.delay([user.email], subject, message, message_html)

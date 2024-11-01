@@ -74,6 +74,8 @@ INSTALLED_APPS = [
     "allauth.account",
     "allauth.socialaccount",
     "allauth.socialaccount.providers.github",
+    "django_celery_results",
+    "django_celery_beat",
     "rest_framework",
     "rest_framework.authtoken",
     "corsheaders",
@@ -83,10 +85,6 @@ INSTALLED_APPS = [
     "apps.users",
     "apps.tasks",
 ]
-
-if env("CELERY_ACTIVE"):
-    INSTALLED_APPS.append("django_celery_results")
-    INSTALLED_APPS.append("django_celery_beat")
 
 if "minio" in env("S3_HOST"):
     INSTALLED_APPS.append("django_minio_backend")
@@ -336,14 +334,14 @@ celery_broker_pass = env("CELERY_BROKER_PASSWORD")
 celery_broker_host = env("CELERY_BROKER_HOST")
 
 CELERY_ACTIVE = env("CELERY_ACTIVE")
-if CELERY_ACTIVE:
-    CELERY_BROKER_URL = f"pyamqp://{celery_broker_user}:{celery_broker_pass}@{celery_broker_host}"
-    CELERY_CACHE_BACKEND = "default"
 
-    CELERY_ACCEPT_CONTENT = ["json"]
-    CELERY_RESULT_BACKEND = "django-db"
+CELERY_BROKER_URL = f"pyamqp://{celery_broker_user}:{celery_broker_pass}@{celery_broker_host}"
+CELERY_CACHE_BACKEND = "default"
 
-    CELERY_TASK_SERIALIZER = "json"
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_RESULT_BACKEND = "django-db"
+
+CELERY_TASK_SERIALIZER = "json"
 
 # Elastic search
 

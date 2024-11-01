@@ -9,6 +9,8 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient, APITestCase
 
+from config.celery import app as celery_app
+
 from apps.users.models import User
 from apps.tasks.models import Task, Comment, TimeLog, TaskAttachment
 from apps.tasks.serializers import TaskSerializer, CommentSerializer, TimeLogSerializer
@@ -19,6 +21,9 @@ class TestTasks(APITestCase):
 
     def setUp(self) -> None:
         logging.disable(logging.CRITICAL)
+        celery_app.conf.update(
+            task_always_eager=True,
+        )
 
         self.client = APIClient()
 
@@ -230,6 +235,9 @@ class TestComments(APITestCase):
 
     def setUp(self) -> None:
         logging.disable(logging.CRITICAL)
+        celery_app.conf.update(
+            task_always_eager=True,
+        )
 
         self.client = APIClient()
 
@@ -273,6 +281,10 @@ class TestMail(APITestCase):
 
     def setUp(self) -> None:
         logging.disable(logging.CRITICAL)
+        celery_app.conf.update(
+            task_always_eager=True,
+        )
+
         self.client = APIClient()
 
         self.user = User.objects.get(pk=1)
@@ -316,6 +328,10 @@ class TestTimeLog(APITestCase):
 
     def setUp(self) -> None:
         logging.disable(logging.CRITICAL)
+        celery_app.conf.update(
+            task_always_eager=True,
+        )
+
         self.client = APIClient()
 
         self.user = User.objects.get(pk=1)
