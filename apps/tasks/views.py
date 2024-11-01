@@ -255,7 +255,7 @@ class TaskViewSet(ModelViewSet):
         parser_classes=[MultiPartParser, FormParser],
         serializer_class=TaskAttachmentSerializer,
     )
-    def upload_attachment(self, request, *args, **kwargs):
+    def attachment(self, request, *args, **kwargs):
         task = self.get_object()
         request_data = request.data
         request_data["task"] = task.id

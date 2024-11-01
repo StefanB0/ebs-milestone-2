@@ -2,6 +2,7 @@ from apps.users.models import User
 from django.test import TestCase
 from rest_framework.reverse import reverse
 from rest_framework.test import APIClient
+from rest_framework import status
 
 
 class TestUsers(TestCase):
@@ -30,18 +31,17 @@ class TestUsers(TestCase):
         self.assertEqual(new_user.email, "username2@example.mail.com")
         self.assertTrue(new_user.check_password("testpwd2"))
 
-        # register with existing email
+    def test_register_repeat_email(self) -> None:
+        user_data = {
+            "first_name": "firstname2",
+            "last_name": "lastname2",
+            "email": "username2@example.mail.com",
+            "username": "username2",
+            "password": "testpwd2",
+        }
 
-        response = self.client.post(
-            reverse("users-register"),
-            {
-                "first_name": "firstname2",
-                "last_name": "lastname2",
-                "email": "username2@example.mail.com",
-                "username": "username2",
-                "password": "testpwd2",
-            },
-        )
+        self.client.post(reverse("users-register"), user_data)
+        response = self.client.post(reverse("users-register"), user_data)
 
         self.assertEqual(response.status_code, 400)
 
@@ -57,7 +57,7 @@ class TestUsers(TestCase):
         self.assertContains(response, "access", status_code=200, msg_prefix="Login failed:" + str(response.data))
         self.assertContains(response, "refresh", status_code=200)
 
-        # login not existing user
+    def test_login_user_not_found(self) -> None:
         response = self.client.post(
             reverse("users-login"),
             {
@@ -68,7 +68,7 @@ class TestUsers(TestCase):
 
         self.assertEqual(response.status_code, 400)
 
-        # login with wrong password
+    def test_login_wrong_password(self) -> None:
         response = self.client.post(
             reverse("users-login"),
             {
@@ -79,6 +79,7 @@ class TestUsers(TestCase):
 
         self.assertEqual(response.status_code, 400)
 
+    def test_login_empty_email(self) -> None:
         # log in with empty email
         response = self.client.post(
             reverse("users-login"),
@@ -122,3 +123,18 @@ class TestUsers(TestCase):
         self.assertContains(response, "last_name")
         self.assertContains(response, "username")
         self.assertEqual(response.data["email"], self.test_user1.email)
+
+    def test_profile_render(self) -> None:
+        url = reverse("users-profile")
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response["Content-Type"], "text/html; charset=utf-8")
+
+    def test_top_task_render(self) -> None:
+        self.client.force_authenticate(user=self.test_user1)
+        url = reverse("users-top-tasks", args=[1])
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response["Content-Type"], "text/html; charset=utf-8")

@@ -19,7 +19,7 @@ x-milestone-django-app: &x-milestone-django-app
       - CELERY_BROKER_HOST=rabbitmq-broker
       - S3_BACKEND=minio
       - S3_HOST=minio
-      - ELASTICSEARCH_ACTIVE=false
+      - ELASTICSEARCH_ACTIVE=true
       - ELASTICSEARCH_HOST=elasticsearch
     volumes:
       - ./fixtures:/app/fixtures

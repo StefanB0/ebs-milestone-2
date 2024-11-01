@@ -47,4 +47,5 @@ python manage.py test
 Run coverage
 ```shell
 coverage run --source='.' manage.py test && coverage report
+coverage run --source='.' manage.py test && coverage html
 ```

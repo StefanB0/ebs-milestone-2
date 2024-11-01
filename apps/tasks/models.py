@@ -38,14 +38,10 @@ class Task(models.Model):
         return
 
     def complete_task(self):
-        if self.is_completed:
-            return
         self.is_completed = True
         self.save()
 
     def undo_task(self):
-        if not self.is_completed:
-            return
         self.is_completed = False
         self.save()
 

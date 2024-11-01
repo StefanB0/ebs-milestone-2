@@ -348,6 +348,8 @@ CELERY_TASK_SERIALIZER = "json"
 
 # Elastic search
 
+ELASTICSEARCH_ACTIVE = env("ELASTICSEARCH_ACTIVE")
+
 ELASTICSEARCH_DSL = {
     "default": {
         "hosts": f"http://{env("ELASTICSEARCH_HOST")}:9200",

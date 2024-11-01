@@ -1,5 +1,7 @@
 import datetime
 import logging
+from unittest import skipUnless
+
 
 from django.core import mail
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -10,6 +12,7 @@ from rest_framework import status
 from rest_framework.test import APIClient, APITestCase
 
 from config.celery import app as celery_app
+from config.settings import ELASTICSEARCH_ACTIVE
 
 from apps.users.models import User
 from apps.tasks.models import Task, Comment, TimeLog, TaskAttachment
@@ -72,13 +75,15 @@ class TestTasks(APITestCase):
         for time_log in task3_log_set.all():
             task3_time_spent += time_log.duration
 
-        r_time = response.data[2]["time_spent"]
+        r_task3 = next(task for task in response.data if task["id"] == 3)
+        r_time = r_task3["time_spent"]
         r_time = datetime.datetime.strptime(r_time, "%H:%M:%S")
         r_time = timezone.timedelta(hours=r_time.hour, minutes=r_time.minute, seconds=r_time.second)
-        self.assertEqual(r_time.total_seconds(), task3_time_spent.total_seconds())
+        self.assertEqual(r_time.total_seconds(), task3_time_spent.total_seconds(), str(response.data))
 
         # Check if time_spent is calculated correctly for task without timelogs
-        r_time = response.data[1]["time_spent"]
+        r_task2 = next(task for task in response.data if task["id"] == 2)
+        r_time = r_task2["time_spent"]
         # r_time = datetime.datetime.strptime(r_time, "%H:%M:%S")
         # r_time = timezone.timedelta(hours=r_time.hour, minutes=r_time.minute, seconds=r_time.second)
         self.assertEqual(r_time, None)
@@ -129,7 +134,7 @@ class TestTasks(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), completed_tasks.count())
-        self.assertEqual(response.data[0]["title"], self.tasks[1]["title"])
+        self.assertEqual(response.data[0]["title"], completed_tasks[0].title)
         self.assertEqual(response.data[0]["id"], completed_tasks[0].id)
         self.assertContains(response, "title")
         self.assertContains(response, "id")
@@ -147,7 +152,7 @@ class TestTasks(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]["title"], self.tasks[0]["title"])
+        self.assertEqual(response.data[0]["title"], "Test task 1")
         self.assertEqual(response.data[0]["id"], 1)
         self.assertContains(response, "title")
         self.assertContains(response, "id")
@@ -208,6 +213,30 @@ class TestTasks(APITestCase):
 
         # Task does not exist
         response = self.client.patch(reverse("tasks-complete-task", args=[9999]))
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_undo_task(self) -> None:
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.patch(reverse("tasks-undo-task", args=[2]))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["message"], "Task undone successfully")
+
+        # complete already completed task
+        response = self.client.patch(reverse("tasks-undo-task", args=[2]))
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data["error"], "Task not yet completed")
+
+        # complete task that does not belong to user
+        response = self.client.patch(reverse("tasks-undo-task", args=[7]))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["message"], "Task undone successfully")
+
+        # Task does not exist
+        response = self.client.patch(reverse("tasks-undo-task", args=[9999]))
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_delete_task(self) -> None:
@@ -571,7 +600,6 @@ class TestMinIO(APITestCase):
         file = SimpleUploadedFile(self.mock_photo_prefix + self.photos[0], b"file_content", content_type="image/png")
         attachment = TaskAttachment.objects.create(task=task, file=file)
 
-        # Assertions
         self.assertEqual(attachment.task, task)
         self.assertTrue(self.photos[0].split(".")[0] in attachment.file.name, str(attachment.file.name))
 
@@ -579,13 +607,13 @@ class TestMinIO(APITestCase):
         self.client.force_authenticate(user=self.user)
 
         task = Task.objects.first()
-        url = f"/tasks/{task.id}/upload_attachment/"
         file = SimpleUploadedFile(self.photos[0], b"file_content", content_type="image/png")
-        response = self.client.post(url, {"file": file}, format="multipart")
+        response = self.client.post(reverse("tasks-attachment", args=[task.id]), {"file": file}, format="multipart")
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertIn("attach_id", response.data)
         self.assertIn("task_id:", response.data)
+        self.assertEqual(task.id, response.data["task_id:"], response.data)
 
     def test_get_attachments(self):
         self.client.force_authenticate(user=self.user)
@@ -595,8 +623,99 @@ class TestMinIO(APITestCase):
             task=task, file=SimpleUploadedFile(self.photos[1], b"file_content", content_type="image/png")
         )
 
-        url = f"/tasks/{task.id}/attachments/"
-        response = self.client.get(url)
+        response = self.client.get(reverse("tasks-attachments", args=[task.id]))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertGreaterEqual(len(response.data), 1)
+        self.assertIn(self.photos[1].split(".")[0], response.data[0]["file"])
+
+    def test_get_attachment_not_exist(self):
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(reverse("tasks-attachments", args=[999]))
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.data["error"], "Task does not exist")
+
+    def test_get_missing_attachment(self):
+        self.client.force_authenticate(user=self.user)
+
+        task = Task.objects.last()
+
+        response = self.client.get(reverse("tasks-attachments", args=[task.id]))
+        self.assertEqual(len(response.data), 0)
+
+
+class TestElasticSearch(APITestCase):
+    fixtures = ["fixtures/users", "fixtures/tasks", "fixtures/comments", "fixtures/tasks"]
+
+    def setUp(self) -> None:
+        logging.disable(logging.CRITICAL)
+
+        self.client = APIClient()
+        user1 = User.objects.get(pk=1)
+        self.client.force_authenticate(user=user1)
+
+    @skipUnless(ELASTICSEARCH_ACTIVE, "ElasticSearch is not active")
+    def test_task_search_no_params(self):
+        response = self.client.get(reverse("elasticsearch-task"))
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.json(), {"error": "No query was provided"}, response)
+
+    @skipUnless(ELASTICSEARCH_ACTIVE, "ElasticSearch is not active")
+    def test_task_search_title_param(self):
+        response = self.client.get(reverse("elasticsearch-task"), {"title": "Test task"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertGreaterEqual(len(response.data), 1)
+        self.assertIn("Test task", response.data[0]["title"], response.data)
+
+    @skipUnless(ELASTICSEARCH_ACTIVE, "ElasticSearch is not active")
+    def test_task_search_description_param(self):
+        response = self.client.get(reverse("elasticsearch-task"), {"description": "week"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertGreaterEqual(len(response.data), 2)
+
+    @skipUnless(ELASTICSEARCH_ACTIVE, "ElasticSearch is not active")
+    def test_task_search_comment_body_param(self):
+        response = self.client.get(reverse("elasticsearch-task"), {"comment-body": "Test comment"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertGreaterEqual(len(response.data), 1)
+
+    @skipUnless(ELASTICSEARCH_ACTIVE, "ElasticSearch is not active")
+    def test_task_search_with_limit(self):
+        response = self.client.get(reverse("elasticsearch-task"), {"description": "week", "limit": 1})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertGreaterEqual(len(response.data), 1)
+
+    @skipUnless(ELASTICSEARCH_ACTIVE, "ElasticSearch is not active")
+    def test_task_search_multiple_params(self):
+        response = self.client.get(reverse("elasticsearch-task"), {"title": "dentist", "description": "week"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertGreaterEqual(len(response.data), 1)
+
+    @skipUnless(ELASTICSEARCH_ACTIVE, "ElasticSearch is not active")
+    def test_task_update_task(self):
+        response = self.client.get(reverse("elasticsearch-task"), {"title": "cat"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertLessEqual(len(response.data), 0)
+
+        task_instance = Task.objects.first()
+        task_instance.title += " test cat"
+        task_instance.save()
+
+        response = self.client.get(reverse("elasticsearch-task"), {"title": "cat"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertLessEqual(len(response.data), 1)
+
+    @skipUnless(ELASTICSEARCH_ACTIVE, "ElasticSearch is not active")
+    def test_task_update_comment(self):
+        response = self.client.get(reverse("elasticsearch-task"), {"title": "spider"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertLessEqual(len(response.data), 0)
+
+        comment_instance = Comment.objects.first()
+        comment_instance.body = "test spider"
+        comment_instance.save()
+
+        response = self.client.get(reverse("elasticsearch-task"), {"comment-body": "spider"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertLessEqual(len(response.data), 1)
