@@ -1,4 +1,4 @@
-# ebs-milestone-2
+# Ebs Internship Project
 
 ## Local dev
 
@@ -23,8 +23,7 @@
 
 ## Testing
 
-Start celery 
-
+Start celery
 ```shell
 docker compose up -d --build celery
 ```
