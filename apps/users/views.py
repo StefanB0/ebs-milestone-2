@@ -150,11 +150,11 @@ class UserViewSet(mixins.RetrieveModelMixin, mixins.ListModelMixin, mixins.Updat
 
     @action(detail=True, url_path="top-tasks", url_name="top-tasks")
     def top_tasks(self, request, *args, **kwargs):
-        assert isinstance(F("time_wtf").desc, object)
+        assert isinstance(F("time_all").desc, object)
 
         tasks = (
             Task.objects.filter(user=kwargs["pk"])
             .annotate(time_wtf=Sum("timelog__duration"))
-            .order_by(F("time_wtf").desc(nulls_last=True))[:20]
+            .order_by(F("time_all").desc(nulls_last=True))[:20]
         )
         return render(request, "tasks/tasks_email.html", {"tasks": tasks})

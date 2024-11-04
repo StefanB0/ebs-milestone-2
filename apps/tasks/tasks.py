@@ -38,8 +38,8 @@ def send_weekly_report():
     for user in users:
         tasks = (
             Task.objects.filter(user=user)
-            .annotate(time_a=Sum("timelog__duration"))
-            .order_by(F("time_a").desc(nulls_last=True))[:20]
+            .annotate(time_all=Sum("timelog__duration"))
+            .order_by(F("time_all").desc(nulls_last=True))[:20]
         )
         message_html = render_to_string("tasks/tasks_email.html", {"tasks": tasks})
         serializer = TaskPreviewSerializer(tasks, many=True)

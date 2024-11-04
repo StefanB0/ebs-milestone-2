@@ -30,19 +30,18 @@ env = environ.Env(
     CACHE_PORT=(int, 6379),
     EMAIL_HOST=(str, "localhost"),
     EMAIL_BACKEND=(str, "django.core.mail.backends.smtp.EmailBackend"),
-    CELERY_ACTIVE=(bool, False),
+    CELERY_ACTIVE=(bool, True),
     CELERY_BROKER_USER=(str, "admin"),
     CELERY_BROKER_PASSWORD=(str, "admin"),
     CELERY_BROKER_HOST=(str, "localhost"),
-    S3_BACKEND=(str, "none"),  # options: none, minio
+    S3_BACKEND=(str, "minio"),  # options: none, minio
     S3_HOST=(str, "localhost"),
     S3_EXTERNAL_HOST=(str, "localhost"),
-    ELASTICSEARCH_ACTIVE=(bool, False),
+    ELASTICSEARCH_ACTIVE=(bool, True),
     ELASTICSEARCH_HOST=(str, "localhost"),
+    GITHUB_OAUTH_CLIENT_ID=(str, ""),
+    GITHUB_OAUTH_CLIENT_SECRET=(str, ""),
 )
-
-# MINIO -> S3
-# Redis -> cache
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -57,7 +56,7 @@ SECRET_KEY = "django-insecure-cug=50j#8tv^tw!dvg@e!0snq^p+#ikhwv$6q6zslmt@pp$x0f
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env.bool("DEBUG", default=True)
 
-ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["*"])
+ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=[])
 
 # Application definition
 
@@ -127,7 +126,14 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
-CORS_ORIGIN_ALLOW_ALL = True
+CORS_ORIGIN_ALLOW_ALL = env.bool("CORS_ORIGIN_ALLOW_ALL", default=False)
+
+CORS_ALLOWED_ORIGIN_REGEXES = [r".*://localhost:.*", r".*://127.0.0.1:.*"]
+
+CORS_ALLOWED_ORIGIN_REGEXES += list(map(lambda host: f".*://{host}:.*", ALLOWED_HOSTS))
+
+CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[])
+
 CORS_ALLOW_HEADERS = (
     "accept",
     "accept-encoding",
@@ -279,7 +285,7 @@ if env("S3_BACKEND") == "minio":
         },
     }
 else:
-    STATIC_URL = "/static/"
+    STATIC_URL = "static/"
     SESSION_ENGINE = "django.contrib.sessions.backends.cache"
 
 
@@ -367,7 +373,7 @@ SOCIALACCOUNT_PROVIDERS = {
     "github": {
         "VERIFIED_EMAIL": True,
         "APPS": [
-            {"client_id": "Ov23lid38oh548eaveU6", "secret": "3946a3538d5953624eca0efb405cae3599275c1e", "key": ""},
+            {"client_id": env("GITHUB_OAUTH_CLIENT_ID"), "secret": env("GITHUB_OAUTH_CLIENT_SECRET"), "key": ""},
         ],
         "SCOPE": ["user"],
     }
