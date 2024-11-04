@@ -1,51 +1,53 @@
 # ebs-milestone-2
 
-## Developer guide
+## Local dev
 
-Build image
+1. Install pipx `python -m pip install --user pipx`
 
-```sh
-docker build -t ebs-milestone-2 .
+2. Create virtual environment `python -m venv .venv`
+
+3. Activate virtual environment (On windows) `source .venv/Scripts/activate`
+
+4. Install poetry `pipx install poetry`
+
+5. Install dependencies `poetry install`
+
+6. Install pre-commit hooks `pre-commit install`
+
+## Docker
+
+1. Build image `docker build -t ebs-milestone-2 .`
+
+2. Run docker compose `docker compose up -d --build --wait`
+
+
+## Testing
+
+Start celery 
+
+```shell
+docker compose up -d --build celery
 ```
 
-Run container interactive mode
-
-```sh
-docker run --rm -it ebs-milestone-2 bash
+Run tests locally (some are skipped)
+```shell
+python manage.py test
 ```
 
-Run container as server 
-
-```sh
-docker run --rm -it -p 8000:8000 ebs-milestone-2
-```
-
-Run docker compose
-
+Run tests in docker.
 ```shell
 docker compose up -d --build --wait
 ```
 
-Start celery
 ```shell
-docker run -d -p 5672:5672 rabbitmq
-celery -A config worker -l INFO --pool=solo
-```
-
-## Testing
-
-Run Tests, before running tests be sure to start celery and the rabbitmq container from docker compose.
-```shell
-docker compose up -d mailhog-mock rabbitmq-broker minio
-celery -A config worker -l INFO --pool=solo
-```
-
-```shell
-python manage.py test
+docker compose exec app python manage.py test
 ```
 
 Run coverage
 ```shell
 coverage run --source='.' manage.py test && coverage report
+```
+
+```shell
 coverage run --source='.' manage.py test && coverage html
 ```

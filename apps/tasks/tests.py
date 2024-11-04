@@ -84,8 +84,6 @@ class TestTasks(APITestCase):
         # Check if time_spent is calculated correctly for task without timelogs
         r_task2 = next(task for task in response.data if task["id"] == 2)
         r_time = r_task2["time_spent"]
-        # r_time = datetime.datetime.strptime(r_time, "%H:%M:%S")
-        # r_time = timezone.timedelta(hours=r_time.hour, minutes=r_time.minute, seconds=r_time.second)
         self.assertEqual(r_time, None)
 
     def test_get_user_tasks(self) -> None:
