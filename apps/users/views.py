@@ -154,7 +154,7 @@ class UserViewSet(mixins.RetrieveModelMixin, mixins.ListModelMixin, mixins.Updat
 
         tasks = (
             Task.objects.filter(user=kwargs["pk"])
-            .annotate(time_wtf=Sum("timelog__duration"))
+            .annotate(time_all=Sum("timelog__duration"))
             .order_by(F("time_all").desc(nulls_last=True))[:20]
         )
         return render(request, "tasks/tasks_email.html", {"tasks": tasks})

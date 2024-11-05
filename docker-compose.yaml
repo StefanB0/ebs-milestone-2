@@ -21,6 +21,8 @@ x-milestone-django-app: &x-milestone-django-app
       - S3_HOST=minio
       - ELASTICSEARCH_ACTIVE=true
       - ELASTICSEARCH_HOST=elasticsearch
+      - OAUTH_CLIENT_ID_GITHUB=${OAUTH_CLIENT_ID_GITHUB}
+      - OAUTH_CLIENT_SECRET_GITHUB=${OAUTH_CLIENT_SECRET_GITHUB}
     volumes:
       - ./fixtures:/app/fixtures
 

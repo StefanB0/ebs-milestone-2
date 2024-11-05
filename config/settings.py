@@ -39,8 +39,8 @@ env = environ.Env(
     S3_EXTERNAL_HOST=(str, "localhost"),
     ELASTICSEARCH_ACTIVE=(bool, True),
     ELASTICSEARCH_HOST=(str, "localhost"),
-    GITHUB_OAUTH_CLIENT_ID=(str, ""),
-    GITHUB_OAUTH_CLIENT_SECRET=(str, ""),
+    OAUTH_CLIENT_ID_GITHUB=(str, ""),
+    OAUTH_CLIENT_SECRET_GITHUB=(str, ""),
 )
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -56,7 +56,7 @@ SECRET_KEY = "django-insecure-cug=50j#8tv^tw!dvg@e!0snq^p+#ikhwv$6q6zslmt@pp$x0f
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env.bool("DEBUG", default=True)
 
-ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=[])
+ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost"])
 
 # Application definition
 
@@ -128,11 +128,11 @@ WSGI_APPLICATION = "config.wsgi.application"
 
 CORS_ORIGIN_ALLOW_ALL = env.bool("CORS_ORIGIN_ALLOW_ALL", default=False)
 
+CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[])
+
 CORS_ALLOWED_ORIGIN_REGEXES = [r".*://localhost:.*", r".*://127.0.0.1:.*"]
 
 CORS_ALLOWED_ORIGIN_REGEXES += list(map(lambda host: f".*://{host}:.*", ALLOWED_HOSTS))
-
-CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[])
 
 CORS_ALLOW_HEADERS = (
     "accept",
@@ -373,7 +373,7 @@ SOCIALACCOUNT_PROVIDERS = {
     "github": {
         "VERIFIED_EMAIL": True,
         "APPS": [
-            {"client_id": env("GITHUB_OAUTH_CLIENT_ID"), "secret": env("GITHUB_OAUTH_CLIENT_SECRET"), "key": ""},
+            {"client_id": env("OAUTH_CLIENT_ID_GITHUB"), "secret": env("OAUTH_CLIENT_SECRET_GITHUB"), "key": ""},
         ],
         "SCOPE": ["user"],
     }

@@ -20,5 +20,8 @@ jobs:
         uses: hoverkraft-tech/compose-action@v2.0.1
         with:
           compose-file: "./docker-compose.yaml"
+        env:
+          OAUTH_CLIENT_ID_GITHUB: ${{ secrets.OAUTH_CLIENT_ID_GITHUB }}
+          OAUTH_CLIENT_SECRET_GITHUB: ${{ secrets.OAUTH_CLIENT_SECRET_GITHUB }}
       - name: Execute tests in the running services
         run: docker compose exec app python manage.py test
