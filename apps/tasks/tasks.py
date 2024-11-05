@@ -1,5 +1,6 @@
 from smtplib import SMTPException
 
+from django.contrib.auth import get_user_model
 from django.core.mail import send_mail
 
 from celery import shared_task
@@ -9,8 +10,9 @@ from django.template.loader import render_to_string
 
 from apps.tasks.models import Task
 from apps.tasks.serializers import TaskPreviewSerializer
-from apps.users.models import User
 from config.celery import app
+
+User = get_user_model()
 
 
 @app.on_after_finalize.connect

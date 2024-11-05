@@ -1,7 +1,7 @@
+from django.contrib.auth import get_user_model
 from django.db.models import Sum, F
 
 from apps.tasks.models import Task
-from apps.users.models import User
 from drf_spectacular.utils import extend_schema, OpenApiResponse, inline_serializer
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -16,6 +16,8 @@ from rest_framework import status, serializers
 from django.shortcuts import render
 
 from apps.users.serializers import UserSerializer, UserRegisterSerializer, UserLoginSerializer, UserPreviewSerializer
+
+User = get_user_model()
 
 
 class UserViewSet(mixins.RetrieveModelMixin, mixins.ListModelMixin, mixins.UpdateModelMixin, GenericViewSet):

@@ -2,7 +2,7 @@ import datetime
 import logging
 from unittest import skipUnless
 
-
+from django.contrib.auth import get_user_model
 from django.core import mail
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
@@ -14,9 +14,10 @@ from rest_framework.test import APIClient, APITestCase
 from config.celery import app as celery_app
 from config.settings import ELASTICSEARCH_ACTIVE
 
-from apps.users.models import User
 from apps.tasks.models import Task, Comment, TimeLog, TaskAttachment
 from apps.tasks.serializers import TaskSerializer, CommentSerializer, TimeLogSerializer
+
+User = get_user_model()
 
 
 class TestTasks(APITestCase):

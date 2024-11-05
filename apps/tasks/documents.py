@@ -1,8 +1,10 @@
+from django.contrib.auth import get_user_model
 from django_elasticsearch_dsl import Document, fields
 from django_elasticsearch_dsl.registries import registry
 
 from apps.tasks.models import Task, Comment
-from apps.users.models import User
+
+User = get_user_model()
 
 
 @registry.register_document

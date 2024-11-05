@@ -1,9 +1,10 @@
 import random
 
+from django.contrib.auth import get_user_model
 from django.core.management import BaseCommand
-
 from apps.tasks.tasks import c_send_mail
-from apps.users.models import User
+
+User = get_user_model()
 
 
 class Command(BaseCommand):

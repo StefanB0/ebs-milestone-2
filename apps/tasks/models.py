@@ -4,13 +4,11 @@ import math
 from django.db import models
 from django.db.models import Sum
 from django.utils import timezone
-
-from django_minio_backend import iso_date_prefix
+from django.contrib.auth import get_user_model
 
 from apps.tasks.exceptions import TimeLogError
-from apps.users.models import User
 
-
+User = get_user_model()
 logger = logging.getLogger(__name__)
 
 
@@ -75,7 +73,7 @@ class Comment(models.Model):
 class TaskAttachment(models.Model):
     file = models.FileField(
         verbose_name="Task Photo",
-        upload_to=iso_date_prefix,
+        upload_to="task-attachments/%Y-%m-%d/",
     )
     task = models.ForeignKey(Task, on_delete=models.CASCADE)
 

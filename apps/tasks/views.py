@@ -1,6 +1,7 @@
 import logging
 
 from django.core.cache import cache
+from django.contrib.auth import get_user_model
 from drf_spectacular.openapi import OpenApiExample, OpenApiTypes
 from drf_spectacular.utils import extend_schema, OpenApiResponse, inline_serializer, OpenApiParameter
 from elasticsearch_dsl.query import Q
@@ -27,7 +28,8 @@ from apps.tasks.serializers import (
     TaskAttachmentSerializer,
 )
 from apps.tasks.signals import task_comment, task_assigned, task_complete, task_undo
-from apps.users.models import User
+
+User = get_user_model()
 
 logger = logging.getLogger("django")
 
