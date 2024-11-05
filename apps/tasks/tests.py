@@ -7,12 +7,12 @@ from django.core import mail
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 from django.utils import timezone
+from django.conf import settings
 
 from rest_framework import status
 from rest_framework.test import APIClient, APITestCase
 
 from config.celery import app as celery_app
-from config.settings import ELASTICSEARCH_ACTIVE
 
 from apps.tasks.models import Task, Comment, TimeLog, TaskAttachment
 from apps.tasks.serializers import TaskSerializer, CommentSerializer, TimeLogSerializer
@@ -681,44 +681,44 @@ class TestElasticSearch(APITestCase):
         user1 = User.objects.get(pk=1)
         self.client.force_authenticate(user=user1)
 
-    @skipUnless(ELASTICSEARCH_ACTIVE, "ElasticSearch is not active")
+    @skipUnless(settings.ELASTICSEARCH_ACTIVE, "ElasticSearch is not active")
     def test_task_search_no_params(self):
         response = self.client.get(reverse("elasticsearch-task"))
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(response.json(), {"error": "No query was provided"}, response)
 
-    @skipUnless(ELASTICSEARCH_ACTIVE, "ElasticSearch is not active")
+    @skipUnless(settings.ELASTICSEARCH_ACTIVE, "ElasticSearch is not active")
     def test_task_search_title_param(self):
         response = self.client.get(reverse("elasticsearch-task"), {"title": "Test task"})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertGreaterEqual(len(response.data), 1)
         self.assertIn("Test task", response.data[0]["title"], response.data)
 
-    @skipUnless(ELASTICSEARCH_ACTIVE, "ElasticSearch is not active")
+    @skipUnless(settings.ELASTICSEARCH_ACTIVE, "ElasticSearch is not active")
     def test_task_search_description_param(self):
         response = self.client.get(reverse("elasticsearch-task"), {"description": "week"})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertGreaterEqual(len(response.data), 2)
 
-    @skipUnless(ELASTICSEARCH_ACTIVE, "ElasticSearch is not active")
+    @skipUnless(settings.ELASTICSEARCH_ACTIVE, "ElasticSearch is not active")
     def test_task_search_comment_body_param(self):
         response = self.client.get(reverse("elasticsearch-task"), {"comment-body": "Test comment"})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertGreaterEqual(len(response.data), 1)
 
-    @skipUnless(ELASTICSEARCH_ACTIVE, "ElasticSearch is not active")
+    @skipUnless(settings.ELASTICSEARCH_ACTIVE, "ElasticSearch is not active")
     def test_task_search_with_limit(self):
         response = self.client.get(reverse("elasticsearch-task"), {"description": "week", "limit": 1})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertGreaterEqual(len(response.data), 1)
 
-    @skipUnless(ELASTICSEARCH_ACTIVE, "ElasticSearch is not active")
+    @skipUnless(settings.ELASTICSEARCH_ACTIVE, "ElasticSearch is not active")
     def test_task_search_multiple_params(self):
         response = self.client.get(reverse("elasticsearch-task"), {"title": "dentist", "description": "week"})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertGreaterEqual(len(response.data), 1)
 
-    @skipUnless(ELASTICSEARCH_ACTIVE, "ElasticSearch is not active")
+    @skipUnless(settings.ELASTICSEARCH_ACTIVE, "ElasticSearch is not active")
     def test_task_update_task(self):
         response = self.client.get(reverse("elasticsearch-task"), {"title": "cat"})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -732,7 +732,7 @@ class TestElasticSearch(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertLessEqual(len(response.data), 1)
 
-    @skipUnless(ELASTICSEARCH_ACTIVE, "ElasticSearch is not active")
+    @skipUnless(settings.ELASTICSEARCH_ACTIVE, "ElasticSearch is not active")
     def test_task_update_comment(self):
         response = self.client.get(reverse("elasticsearch-task"), {"title": "spider"})
         self.assertEqual(response.status_code, status.HTTP_200_OK)

@@ -18,29 +18,20 @@ from typing import List, Tuple
 from datetime import timedelta
 
 # Django-environ
+# Required services to run application: postgres, mailhog
 env = environ.Env(
-    DB_DEFAULT_ENGINE=(str, "sqlite3"),  # options: sqlite3, postgresql
-    DB_HOST=(str, "localhost"),
-    DB_USER=(str, "postgres"),
-    DB_PASSWORD=(str, "postgres"),
-    DB_NAME=(str, "postgres"),
-    DB_PORT=(int, 5432),
-    CACHE_DEFAULT_BACKEND=(str, "none"),  # options: none, redis
-    CACHE_HOST=(str, "localhost"),
-    CACHE_PORT=(int, 6379),
-    EMAIL_HOST=(str, "localhost"),
-    EMAIL_BACKEND=(str, "django.core.mail.backends.smtp.EmailBackend"),
-    CELERY_ACTIVE=(bool, True),
-    CELERY_BROKER_USER=(str, "admin"),
-    CELERY_BROKER_PASSWORD=(str, "admin"),
-    CELERY_BROKER_HOST=(str, "localhost"),
-    S3_BACKEND=(str, "minio"),  # options: none, minio
-    S3_HOST=(str, "localhost"),
-    S3_EXTERNAL_HOST=(str, "localhost"),
     ELASTICSEARCH_ACTIVE=(bool, True),
-    ELASTICSEARCH_HOST=(str, "localhost"),
+    CELERY_ALWAYS_EAGER=(bool, False),
     OAUTH_CLIENT_ID_GITHUB=(str, ""),
     OAUTH_CLIENT_SECRET_GITHUB=(str, ""),
+    DATABASE_URL=(str, "postgresql://postgres:postgres@localhost:5432/postgres"),
+    CACHE_URL=(str, "redis://localhost:6379/1"),  # redis: redis://localhost:6379/1 | local: "locmemcache:"
+    MESSAGE_BROKER_URL=(str, "pyamqp://admin:admin@localhost"),
+    EMAIL_HOST=(str, "localhost"),
+    S3_HOST=(str, "localhost"),
+    S3_BACKEND=(str, "minio"),  # options: none, minio
+    S3_EXTERNAL_HOST=(str, "localhost"),
+    ELASTICSEARCH_HOST=(str, "localhost"),
 )
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -168,42 +159,14 @@ REST_FRAMEWORK = {
 
 # Parse database connection url strings like psql://user:pass@127.0.0.1:8458/db
 
-database_setups = {
-    "postgresql": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": env("DB_NAME"),
-        "USER": env("DB_USER"),
-        "PASSWORD": env("DB_PASSWORD"),
-        "HOST": env("DB_HOST"),
-        "PORT": env("DB_PORT"),
-    },
-    "sqlite3": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
-    },
-}
-
 DATABASES = {
-    "default": database_setups[env("DB_DEFAULT_ENGINE")],
+    "default": env.db(),
 }
 
 # Cache
-cache_setups = {
-    "none": {
-        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
-        "LOCATION": "unique-snowflake",
-    },
-    "redis": {
-        "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": f"redis://{env("CACHE_HOST")}:{env("CACHE_PORT")}/1",
-        "OPTIONS": {
-            "CLIENT_CLASS": "django_redis.client.DefaultClient",
-        },
-    },
-}
 
 CACHES = {
-    "default": cache_setups[env("CACHE_DEFAULT_BACKEND")],
+    "default": env.cache(),
 }
 
 # Password validation
@@ -304,7 +267,7 @@ SPECTACULAR_SETTINGS = {
 
 # Email settings
 
-EMAIL_BACKEND = env("EMAIL_BACKEND")
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = env("EMAIL_HOST")
 
 EMAIL_PORT = 1025
@@ -338,13 +301,9 @@ LOGGING = {
 
 # Celery settings
 
-celery_broker_user = env("CELERY_BROKER_USER")
-celery_broker_pass = env("CELERY_BROKER_PASSWORD")
-celery_broker_host = env("CELERY_BROKER_HOST")
+CELERY_ALWAYS_EAGER = env("CELERY_ALWAYS_EAGER")
 
-CELERY_ACTIVE = env("CELERY_ACTIVE")
-
-CELERY_BROKER_URL = f"pyamqp://{celery_broker_user}:{celery_broker_pass}@{celery_broker_host}"
+CELERY_BROKER_URL = env("MESSAGE_BROKER_URL")
 CELERY_CACHE_BACKEND = "default"
 
 CELERY_ACCEPT_CONTENT = ["json"]
@@ -373,7 +332,11 @@ SOCIALACCOUNT_PROVIDERS = {
     "github": {
         "VERIFIED_EMAIL": True,
         "APPS": [
-            {"client_id": env("OAUTH_CLIENT_ID_GITHUB"), "secret": env("OAUTH_CLIENT_SECRET_GITHUB"), "key": ""},
+            {
+                "client_id": env("OAUTH_CLIENT_ID_GITHUB"),
+                "secret": env("OAUTH_CLIENT_SECRET_GITHUB"),
+                "key": "",
+            },
         ],
         "SCOPE": ["user"],
     }
