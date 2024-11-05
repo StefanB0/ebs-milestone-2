@@ -17,6 +17,8 @@ from pathlib import Path
 from typing import List, Tuple
 from datetime import timedelta
 
+from celery.schedules import crontab
+
 # Django-environ
 # Required services to run application: postgres, mailhog
 env = environ.Env(
@@ -310,6 +312,15 @@ CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_RESULT_BACKEND = "django-db"
 
 CELERY_TASK_SERIALIZER = "json"
+
+# Celery beat settings
+
+CELERY_BEAT_SCHEDULE = {
+    "weekly_task_report": {
+        "task": "your_app.tasks.send_weekly_report",
+        "schedule": crontab(hour=7, minute=30, day_of_week=1),
+    },
+}
 
 # Elastic search
 

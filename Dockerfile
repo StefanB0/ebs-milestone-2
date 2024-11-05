@@ -33,6 +33,6 @@ HEALTHCHECK --interval=5s --timeout=5s --retries=30 CMD curl -f http://localhost
 ENTRYPOINT bash -c " \
     python manage.py migrate --noinput && \
     python manage.py collectstatic --no-input || true && \
-    python manage.py search_index --rebuild -f || true && \
+    python manage.py search_index --create -f || true && \
     gunicorn config.wsgi:application --bind 0.0.0.0:8000"
 

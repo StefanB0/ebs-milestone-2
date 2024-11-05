@@ -1,26 +1,15 @@
 from smtplib import SMTPException
-
-from django.contrib.auth import get_user_model
-from django.core.mail import send_mail
-
 from celery import shared_task
-from celery.schedules import crontab
+from django.contrib.auth import get_user_model
+
 from django.db.models import Sum, F
 from django.template.loader import render_to_string
+from django.core.mail import send_mail
 
 from apps.tasks.models import Task
 from apps.tasks.serializers import TaskPreviewSerializer
-from config.celery import app
 
 User = get_user_model()
-
-
-@app.on_after_finalize.connect
-def setup_periodic_tasks(sender, **kwargs):
-    # Executes every Monday morning at 7:30 a.m UTC (10:30 a.m. Moldova time).
-    sender.add_periodic_task(
-        crontab(hour=7, minute=30, day_of_week=1), send_weekly_report.s(), name="Weekly Task Report"
-    )
 
 
 @shared_task(bind=True, max_retries=5, default_retry_delay=30)
