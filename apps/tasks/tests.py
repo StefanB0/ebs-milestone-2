@@ -614,47 +614,52 @@ class TestMinIO(APITestCase):
     fixtures = ["fixtures/users", "fixtures/tasks"]
 
     def setUp(self) -> None:
-        self.mock_photo_prefix = "static/mock/"
-        self.photos = ["Duck_" + str(i) + ".png" for i in range(1, 10)]
-
         logging.disable(logging.CRITICAL)
+
+        self.image_name = "Duck_1"
+        with open("static/mock/" + self.image_name + ".png", "rb") as image_file:
+            image_content = image_file.read()
+        self.mock_image = SimpleUploadedFile(self.image_name + ".png", image_content, content_type="image/png")
+
         self.client = APIClient()
         self.user = User.objects.get(pk=1)
-        self.tasks = TaskSerializer(Task.objects.all(), many=True).data
-
         self.client.force_authenticate(user=self.user)
+
+    def tearDown(self) -> None:
+        queryset = TaskAttachment.objects.all()
+        queryset.delete()
 
     def test_task_attachment_creation(self):
         task = Task.objects.first()
-        file = SimpleUploadedFile(self.mock_photo_prefix + self.photos[0], b"file_content", content_type="image/png")
-        attachment = TaskAttachment.objects.create(task=task, file=file)
+        instance = TaskAttachment.objects.create(task=task, image=self.mock_image)
 
-        self.assertEqual(attachment.task, task)
-        self.assertTrue(self.photos[0].split(".")[0] in attachment.file.name, str(attachment.file.name))
+        self.assertEqual(instance.task, task)
+        self.assertTrue(self.image_name in instance.image.name, str(instance.image.name))
+
+        instance.delete()
 
     def test_upload_attachment(self):
         task = Task.objects.first()
-        file = SimpleUploadedFile(self.photos[0], b"file_content", content_type="image/png")
-        response = self.client.post(reverse("tasks-attachment", args=[task.id]), {"file": file}, format="multipart")
+        response = self.client.post(
+            reverse("tasks-attachment", args=[task.id]), {"image": self.mock_image}, format="multipart"
+        )
 
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response)
         self.assertIn("attach_id", response.data)
-        self.assertIn("task_id:", response.data)
-        self.assertEqual(task.id, response.data["task_id:"], response.data)
+        self.assertIn("task_id", response.data)
+        self.assertEqual(task.id, response.data["task_id"], response.data)
 
     def test_get_attachments(self):
         task = Task.objects.first()
-        TaskAttachment.objects.create(
-            task=task, file=SimpleUploadedFile(self.photos[1], b"file_content", content_type="image/png")
-        )
+        TaskAttachment.objects.create(task=task, image=self.mock_image)
 
         response = self.client.get(reverse("tasks-attachments", args=[task.id]))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertGreaterEqual(len(response.data["results"]), 1)
-        self.assertIn(self.photos[1].split(".")[0], response.data["results"][0]["file"])
+        self.assertIn(self.image_name, response.data["results"][0]["image"])
 
-    def test_get_attachment_not_exist(self):
+    def test_get_attachment_task_not_exist(self):
         response = self.client.get(reverse("tasks-attachments", args=[999]))
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)

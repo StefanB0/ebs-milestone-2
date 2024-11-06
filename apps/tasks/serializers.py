@@ -46,7 +46,7 @@ class TaskAttachmentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = TaskAttachment
-        fields = ["id", "file", "task"]
+        fields = ["id", "image", "task"]
 
 
 class TaskElasticSearchSerializer(serializers.Serializer):

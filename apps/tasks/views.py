@@ -291,7 +291,7 @@ class TaskViewSet(ModelViewSet):
 
     @extend_schema(
         request={
-            "multipart/form-data": {"type": "object", "properties": {"file": {"type": "string", "format": "binary"}}}
+            "multipart/form-data": {"type": "object", "properties": {"image": {"type": "string", "format": "binary"}}}
         },
         responses={
             201: OpenApiResponse(
@@ -311,10 +311,10 @@ class TaskViewSet(ModelViewSet):
         request_data["task"] = task.id
         serializer = TaskAttachmentSerializer(data=request_data)
 
-        serializer.is_valid()
+        serializer.is_valid(raise_exception=False)
         instance = serializer.save()
 
-        return Response({"attach_id": instance.id, "task_id:": task.id}, status=status.HTTP_201_CREATED)
+        return Response({"attach_id": instance.id, "task_id": task.id}, status=status.HTTP_201_CREATED)
 
     @extend_schema(responses={200: TaskAttachmentSerializer(many=True)})
     @action(detail=True, methods=["GET"], serializer_class=TaskAttachmentSerializer)
