@@ -698,7 +698,7 @@ class TestElasticSearch(APITestCase):
 
     @skipUnless(settings.ELASTICSEARCH_ACTIVE, "ElasticSearch is not active")
     def test_task_search_comment_body_param(self):
-        response = self.client.get(reverse("elasticsearch-task"), {"comment-body": "Test comment"})
+        response = self.client.get(reverse("elasticsearch-task"), {"comment_body": "Test comment"})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertGreaterEqual(len(response.data), 1)
 
@@ -730,7 +730,7 @@ class TestElasticSearch(APITestCase):
 
     @skipUnless(settings.ELASTICSEARCH_ACTIVE, "ElasticSearch is not active")
     def test_task_update_comment(self):
-        response = self.client.get(reverse("elasticsearch-task"), {"title": "spider"})
+        response = self.client.get(reverse("elasticsearch-task"), {"comment_body": "spider"})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertLessEqual(len(response.data), 0)
 
@@ -738,6 +738,6 @@ class TestElasticSearch(APITestCase):
         comment_instance.body = "test spider"
         comment_instance.save()
 
-        response = self.client.get(reverse("elasticsearch-task"), {"comment-body": "spider"})
+        response = self.client.get(reverse("elasticsearch-task"), {"comment_body": "spider"})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertLessEqual(len(response.data), 1)

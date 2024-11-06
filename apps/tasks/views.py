@@ -23,10 +23,10 @@ from apps.tasks.serializers import (
     TaskUpdateSerializer,
     TaskSearchSerializer,
     CommentSerializer,
-    EmptySerializer,
     TimeLogSerializer,
     TimeLogTopSerializer,
     TaskAttachmentSerializer,
+    TaskElasticSearchSerializer,
 )
 from apps.tasks.signals import task_comment, task_assigned, task_complete, task_undo
 
@@ -171,7 +171,7 @@ class TaskViewSet(ModelViewSet):
             )
         }
     )
-    @action(detail=True, methods=["PATCH"], url_path="complete", serializer_class=EmptySerializer)
+    @action(detail=True, methods=["PATCH"], url_path="complete", serializer_class=serializers.Serializer)
     def complete_task(self, request, *args, **kwargs):
         if not Task.objects.filter(id=kwargs["pk"]).exists():
             return Response({"error": "Task does not exist"}, status=status.HTTP_404_NOT_FOUND)
@@ -195,7 +195,7 @@ class TaskViewSet(ModelViewSet):
             )
         }
     )
-    @action(detail=True, methods=["PATCH"], url_path="undo", serializer_class=EmptySerializer)
+    @action(detail=True, methods=["PATCH"], url_path="undo", serializer_class=serializers.Serializer)
     def undo_task(self, request, *args, **kwargs):
         if not Task.objects.filter(id=kwargs["pk"]).exists():
             return Response({"error": "Task does not exist"}, status=status.HTTP_404_NOT_FOUND)
@@ -242,7 +242,7 @@ class TaskViewSet(ModelViewSet):
             ),
         }
     )
-    @action(detail=True, methods=["PATCH"], url_path="start-timer", serializer_class=EmptySerializer)
+    @action(detail=True, methods=["PATCH"], url_path="start-timer", serializer_class=serializers.Serializer)
     def start_timer(self, request, *args, **kwargs):
         if not Task.objects.filter(id=kwargs["pk"]).exists():
             return Response({"error": "Task does not exist"}, status=status.HTTP_404_NOT_FOUND)
@@ -260,7 +260,7 @@ class TaskViewSet(ModelViewSet):
             )
         }
     )
-    @action(detail=True, methods=["PATCH"], url_path="stop-timer", serializer_class=EmptySerializer)
+    @action(detail=True, methods=["PATCH"], url_path="stop-timer", serializer_class=serializers.Serializer)
     def stop_timer(self, request, *args, **kwargs):
         if not Task.objects.filter(id=kwargs["pk"]).exists():
             return Response({"error": "Task does not exist"}, status=status.HTTP_404_NOT_FOUND)
@@ -465,7 +465,7 @@ class ElasticSearchViewSet(GenericViewSet):
                 description="Description of the task (optional)",
             ),
             OpenApiParameter(
-                name="comment-body",
+                name="comment_body",
                 type=OpenApiTypes.STR,
                 location=OpenApiParameter.QUERY,
                 required=False,
@@ -483,10 +483,14 @@ class ElasticSearchViewSet(GenericViewSet):
     )
     @action(detail=False, methods=["GET"], url_path="task", url_name="task")
     def task_search(self, request, *args, **kwargs):
-        title = request.query_params.get("title")
-        description = request.query_params.get("description")
-        comment_body = request.query_params.get("comment-body")
-        limit = request.query_params.get("limit")
+        serializer = TaskElasticSearchSerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+        validated_data = serializer.validated_data
+
+        title = validated_data.get("title")
+        description = validated_data.get("description")
+        comment_body = validated_data.get("comment_body")
+        limit = validated_data.get("limit")
 
         if not limit:
             limit = 20
