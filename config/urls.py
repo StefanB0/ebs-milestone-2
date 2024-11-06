@@ -31,17 +31,12 @@ router.register("timelogs", TaskTimeLogViewSet, basename="timelogs")
 router.register("elasticsearch", ElasticSearchViewSet, basename="elasticsearch")
 
 urlpatterns = [
+    path("accounts/", include("allauth.urls")),
     path("admin/", admin.site.urls),
     path("common/", include("apps.common.urls")),
-    path("accounts/", include("allauth.urls")),
+    path("", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
+    path("schema", SpectacularAPIView.as_view(), name="schema"),
+    path("redoc", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
 ]
 
 urlpatterns += router.urls
-
-urlpatterns.extend(
-    [
-        path("", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
-        path("schema", SpectacularAPIView.as_view(), name="schema"),
-        path("redoc", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
-    ]
-)

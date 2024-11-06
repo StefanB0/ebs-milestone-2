@@ -23,12 +23,9 @@ class Task(models.Model):
 
     @property
     def time_spent(self):
-        time_logs = self.get_time_logs().exclude(duration=None)
+        time_logs = self.timelog_set.all().exclude(duration=None)
         time_spent = time_logs.aggregate(Sum("duration"))["duration__sum"]
         return time_spent
-
-    def get_time_logs(self):
-        return self.timelog_set.all()
 
     def assign_user(self, new_user):
         self.user = new_user
