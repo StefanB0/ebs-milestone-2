@@ -53,7 +53,7 @@ class TestTasks(APITestCase):
         response = self.client.get(reverse("tasks-list"))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), Task.objects.filter(user=self.user).count())
+        self.assertEqual(len(response.data["results"]), Task.objects.filter(user=self.user).count())
         self.assertContains(response, "id")
         self.assertContains(response, "title")
 
@@ -63,7 +63,7 @@ class TestTasks(APITestCase):
         response = self.client.get(reverse("tasks-list"))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), Task.objects.filter(user=self.user2).count())
+        self.assertEqual(len(response.data["results"]), Task.objects.filter(user=self.user2).count())
 
     # Check if time_spent is in response
     def test_get_tasks_check_time(self) -> None:
@@ -78,7 +78,7 @@ class TestTasks(APITestCase):
         for time_log in task3_log_set.all():
             task3_time_spent += time_log.duration
 
-        r_task3 = next(task for task in response.data if task["id"] == 3)
+        r_task3 = next(task for task in response.data["results"] if task["id"] == 3)
         r_time = r_task3["time_spent"]
         r_time = datetime.datetime.strptime(r_time, "%H:%M:%S")
         r_time = timezone.timedelta(hours=r_time.hour, minutes=r_time.minute, seconds=r_time.second)
@@ -87,14 +87,14 @@ class TestTasks(APITestCase):
     # Check if time_spent is calculated correctly for task without timelogs
     def test_get_tasks_calculate_time_no_timelogs(self) -> None:
         response = self.client.get(reverse("tasks-list"))
-        r_task2 = next(task for task in response.data if task["id"] == 2)
+        r_task2 = next(task for task in response.data["results"] if task["id"] == 2)
         r_time = r_task2["time_spent"]
         self.assertEqual(r_time, None)
 
     def test_get_user_tasks(self) -> None:
         response = self.client.get(reverse("tasks-user", kwargs={"pk": 1}))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), Task.objects.filter(user=self.user).count())
+        self.assertEqual(len(response.data["results"]), Task.objects.filter(user=self.user).count())
 
     # User ID does not exist
     def test_get_user_tasks_no_user(self) -> None:
@@ -106,7 +106,7 @@ class TestTasks(APITestCase):
         response = self.client.get(reverse("tasks-all-tasks"))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), len(self.tasks))
+        self.assertEqual(len(response.data["results"]), len(self.tasks))
         self.assertContains(response, "title")
         self.assertContains(response, "id")
 
@@ -137,41 +137,37 @@ class TestTasks(APITestCase):
         completed_tasks = Task.objects.filter(is_completed=True, user=self.user)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), completed_tasks.count())
-        self.assertEqual(response.data[0]["title"], completed_tasks[0].title)
-        self.assertEqual(response.data[0]["id"], completed_tasks[0].id)
-        self.assertContains(response, "title")
-        self.assertContains(response, "id")
+        self.assertEqual(len(response.data["results"]), completed_tasks.count())
+        self.assertEqual(response.data["results"][0]["title"], completed_tasks[0].title)
+        self.assertEqual(response.data["results"][0]["id"], completed_tasks[0].id)
 
     def test_get_incomplete_tasks(self) -> None:
         self.client.force_authenticate(user=self.user)
         response = self.client.get(reverse("tasks-incomplete-tasks"))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 3)
+        self.assertEqual(len(response.data["results"]), 3)
 
     # Search full title
     def test_search_task(self) -> None:
         response = self.client.post(reverse("tasks-search"), {"search": "Test task 1"})
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]["title"], "Test task 1")
-        self.assertEqual(response.data[0]["id"], 1)
-        self.assertContains(response, "title")
-        self.assertContains(response, "id")
+        self.assertEqual(len(response.data["results"]), 1)
+        self.assertEqual(response.data["results"][0]["title"], "Test task 1")
+        self.assertEqual(response.data["results"][0]["id"], 1)
 
     # Search partial title
     def test_search_task_partial(self) -> None:
         response = self.client.post(reverse("tasks-search"), {"search": "Finish"})
         task_nr = Task.objects.filter(title__icontains="Finish").count()
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), task_nr)
+        self.assertEqual(len(response.data["results"]), task_nr)
 
     # Title does not exist
     def test_search_task_no_task(self) -> None:
         response = self.client.post(reverse("tasks-search"), {"search": "Idempotent"})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 0)
+        self.assertEqual(len(response.data["results"]), 0)
 
     def test_assign_task(self) -> None:
         response = self.client.patch(reverse("tasks-assign-task", args=[1]), {"user": self.user2.id})
@@ -316,7 +312,7 @@ class TestComments(APITestCase):
         response = self.client.get(reverse("tasks-comments", args=[1]))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), comment_nr)
+        self.assertEqual(len(response.data["results"]), comment_nr)
 
     # Comment does not exist
     def test_get_comments_no_comment(self) -> None:
@@ -546,14 +542,14 @@ class TestTimeLog(APITestCase):
 
         response = self.client.get(reverse("tasks-timer-logs", args=[task.id]))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), task.timelog_set.count())
+        self.assertEqual(len(response.data["results"]), task.timelog_set.count())
 
     # Get timelogs for task that does not have any timelogs
     def test_get_time_logs_no_logs(self) -> None:
         task = Task.objects.get(id=8)
         response = self.client.get(reverse("tasks-timer-logs", args=[task.id]))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 0)
+        self.assertEqual(len(response.data["results"]), 0)
 
     # Get timelogs for task that does not belong to user
     def test_get_time_logs_foreign(self) -> None:
@@ -655,8 +651,8 @@ class TestMinIO(APITestCase):
         response = self.client.get(reverse("tasks-attachments", args=[task.id]))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertGreaterEqual(len(response.data), 1)
-        self.assertIn(self.photos[1].split(".")[0], response.data[0]["file"])
+        self.assertGreaterEqual(len(response.data["results"]), 1)
+        self.assertIn(self.photos[1].split(".")[0], response.data["results"][0]["file"])
 
     def test_get_attachment_not_exist(self):
         response = self.client.get(reverse("tasks-attachments", args=[999]))
@@ -668,7 +664,7 @@ class TestMinIO(APITestCase):
         task = Task.objects.last()
 
         response = self.client.get(reverse("tasks-attachments", args=[task.id]))
-        self.assertEqual(len(response.data), 0)
+        self.assertEqual(len(response.data["results"]), 0)
 
 
 class TestElasticSearch(APITestCase):

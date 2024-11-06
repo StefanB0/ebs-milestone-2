@@ -116,7 +116,7 @@ class TestUsers(TestCase):
         self.client.force_authenticate(user=self.test_user1)
         response = self.client.get(reverse("users-list"))
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data), 6)
+        self.assertEqual(len(response.data["results"]), 6, response.data)
 
     def test_get_user(self) -> None:
         self.client.force_authenticate(user=self.test_user1)

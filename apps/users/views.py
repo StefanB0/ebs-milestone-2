@@ -42,18 +42,14 @@ class UserViewSet(mixins.RetrieveModelMixin, mixins.ListModelMixin, mixins.Updat
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
 
-        response_data = []
-        for user in queryset:
-            response_data.append(
-                {
-                    "id": user.id,
-                    "username": user.username,
-                    "fullname": f"{user.first_name} {user.last_name}",
-                    "email": user.email,
-                }
-            )
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
 
-        return Response(response_data)
+        serializer = self.get_serializer(queryset, many=True)
+
+        return Response(serializer.data)
 
     @extend_schema(
         request=UserRegisterSerializer,
