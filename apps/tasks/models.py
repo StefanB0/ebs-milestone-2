@@ -68,7 +68,7 @@ class Comment(models.Model):
 
 
 class TaskAttachment(models.Model):
-    image = models.ImageField(
+    file = models.FileField(
         verbose_name="Task Photo",
         upload_to="task-attachments/%Y-%m-%d/",
     )
