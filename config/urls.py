@@ -17,20 +17,31 @@ Including another URLconf
 
 from django.contrib import admin
 from django.urls import path, include
-from django.conf import settings
-from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
+from rest_framework.routers import SimpleRouter
+from drf_spectacular.views import SpectacularSwaggerView, SpectacularAPIView, SpectacularRedocView
+
+from apps.users.views import UserViewSet
+from apps.tasks.views import TaskViewSet, CommentViewSet, TaskTimeLogViewSet, ElasticSearchViewSet
+
+router = SimpleRouter()
+router.register("users", UserViewSet, basename="users")
+router.register("tasks", TaskViewSet, basename="tasks")
+router.register("comments", CommentViewSet, basename="comments")
+router.register("timelogs", TaskTimeLogViewSet, basename="timelogs")
+router.register("elasticsearch", ElasticSearchViewSet, basename="elasticsearch")
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("common/", include("apps.common.urls")),
-    path("users/", include("apps.users.urls")),
+    path("accounts/", include("allauth.urls")),
 ]
 
-if settings.DEBUG:
-    urlpatterns.extend(
-        [
-            path("", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
-            path("schema", SpectacularAPIView.as_view(), name="schema"),
-            path("redoc", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
-        ]
-    )
+urlpatterns += router.urls
+
+urlpatterns.extend(
+    [
+        path("", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
+        path("schema", SpectacularAPIView.as_view(), name="schema"),
+        path("redoc", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
+    ]
+)

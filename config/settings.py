@@ -10,12 +10,38 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
+import os
 import environ
 
 from pathlib import Path
+from typing import List, Tuple
+from datetime import timedelta
 
 # Django-environ
-env = environ.Env(DOCKER=(bool, False))
+env = environ.Env(
+    DB_DEFAULT_ENGINE=(str, "sqlite3"),  # options: sqlite3, postgresql
+    DB_HOST=(str, "localhost"),
+    DB_USER=(str, "postgres"),
+    DB_PASSWORD=(str, "postgres"),
+    DB_NAME=(str, "postgres"),
+    DB_PORT=(int, 5432),
+    CACHE_DEFAULT_BACKEND=(str, "none"),  # options: none, redis
+    CACHE_HOST=(str, "localhost"),
+    CACHE_PORT=(int, 6379),
+    EMAIL_HOST=(str, "localhost"),
+    EMAIL_BACKEND=(str, "django.core.mail.backends.smtp.EmailBackend"),
+    CELERY_ACTIVE=(bool, True),
+    CELERY_BROKER_USER=(str, "admin"),
+    CELERY_BROKER_PASSWORD=(str, "admin"),
+    CELERY_BROKER_HOST=(str, "localhost"),
+    S3_BACKEND=(str, "minio"),  # options: none, minio
+    S3_HOST=(str, "localhost"),
+    S3_EXTERNAL_HOST=(str, "localhost"),
+    ELASTICSEARCH_ACTIVE=(bool, True),
+    ELASTICSEARCH_HOST=(str, "localhost"),
+    OAUTH_CLIENT_ID_GITHUB=(str, ""),
+    OAUTH_CLIENT_SECRET_GITHUB=(str, ""),
+)
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -30,8 +56,7 @@ SECRET_KEY = "django-insecure-cug=50j#8tv^tw!dvg@e!0snq^p+#ikhwv$6q6zslmt@pp$x0f
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env.bool("DEBUG", default=True)
 
-ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["*"])
-
+ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost"])
 
 # Application definition
 
@@ -44,6 +69,12 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     # Third party apps
+    "allauth",
+    "allauth.account",
+    "allauth.socialaccount",
+    "allauth.socialaccount.providers.github",
+    "django_celery_results",
+    "django_celery_beat",
     "rest_framework",
     "rest_framework.authtoken",
     "corsheaders",
@@ -51,7 +82,15 @@ INSTALLED_APPS = [
     # Local apps
     "apps.common",
     "apps.users",
+    "apps.tasks",
 ]
+
+if env("S3_BACKEND") == "minio":
+    INSTALLED_APPS.append("django_minio_backend")
+
+if env("ELASTICSEARCH_ACTIVE"):
+    INSTALLED_APPS.append("django_elasticsearch_dsl")
+
 
 MIDDLEWARE = [
     # Default Django middleware
@@ -63,6 +102,8 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    # Third Party
+    "allauth.account.middleware.AccountMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -70,7 +111,7 @@ ROOT_URLCONF = "config.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        "DIRS": [BASE_DIR / "templates/"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -85,7 +126,14 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
-CORS_ORIGIN_ALLOW_ALL = True
+CORS_ORIGIN_ALLOW_ALL = env.bool("CORS_ORIGIN_ALLOW_ALL", default=False)
+
+CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[])
+
+CORS_ALLOWED_ORIGIN_REGEXES = [r".*://localhost:.*", r".*://127.0.0.1:.*"]
+
+CORS_ALLOWED_ORIGIN_REGEXES += list(map(lambda host: f".*://{host}:.*", ALLOWED_HOSTS))
+
 CORS_ALLOW_HEADERS = (
     "accept",
     "accept-encoding",
@@ -120,19 +168,48 @@ REST_FRAMEWORK = {
 
 # Parse database connection url strings like psql://user:pass@127.0.0.1:8458/db
 
-DATABASES = {
-    "default": {
+database_setups = {
+    "postgresql": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": env("DB_NAME"),
+        "USER": env("DB_USER"),
+        "PASSWORD": env("DB_PASSWORD"),
+        "HOST": env("DB_HOST"),
+        "PORT": env("DB_PORT"),
+    },
+    "sqlite3": {
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": BASE_DIR / "db.sqlite3",
-    }
+    },
 }
 
-if env("DOCKER"):
-    DATABASES = {"default": env.db()}
+DATABASES = {
+    "default": database_setups[env("DB_DEFAULT_ENGINE")],
+}
 
+# Cache
+cache_setups = {
+    "none": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "unique-snowflake",
+    },
+    "redis": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": f"redis://{env("CACHE_HOST")}:{env("CACHE_PORT")}/1",
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        },
+    },
+}
+
+CACHES = {
+    "default": cache_setups[env("CACHE_DEFAULT_BACKEND")],
+}
 
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
+
+AUTH_USER_MODEL = "users.User"
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -149,6 +226,11 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+AUTHENTICATION_BACKENDS = [
+    "django.contrib.auth.backends.ModelBackend",
+    "allauth.account.auth_backends.AuthenticationBackend",
+]
+
 
 # Internationalization
 # https://docs.djangoproject.com/en/5.1/topics/i18n/
@@ -161,11 +243,51 @@ USE_I18N = True
 
 USE_TZ = True
 
-
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
-STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "static"
+STATICFILES_DIRS = []
+
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
+
+if env("S3_BACKEND") == "minio":
+    STATICFILES_STORAGE = "django_minio_backend.models.MinioBackendStatic"
+    DEFAULT_FILE_STORAGE = "django_minio_backend.models.MinioBackend"
+
+    MINIO_ACCESS_KEY = "admin"
+    MINIO_SECRET_KEY = "admin-admin"
+    MINIO_CONSISTENCY_CHECK_ON_START = False
+    MINIO_BUCKET_CHECK_ON_SAVE = True  # Default: True // Creates bucket if missing, then save
+    MINIO_URL_EXPIRY_HOURS = timedelta(days=1)  # Default is 7 days (longest) if not defined
+    MINIO_POLICY_HOOKS: List[Tuple[str, dict]] = []
+
+    MINIO_MEDIA_FILES_BUCKET = "django-media-files-bucket"  # replacement for MEDIA_ROOT
+    MINIO_STATIC_FILES_BUCKET = "django-static-files-bucket"  # replacement for STATIC_ROOT
+
+    MINIO_PRIVATE_BUCKETS = []
+    MINIO_PUBLIC_BUCKETS = [MINIO_MEDIA_FILES_BUCKET, MINIO_STATIC_FILES_BUCKET]
+
+    MINIO_ENDPOINT = f"{env("S3_HOST")}:9000"
+    MINIO_USE_HTTPS = False
+    MINIO_EXTERNAL_ENDPOINT = f"{env("S3_EXTERNAL_HOST")}:9000"  # Default is same as MINIO_ENDPOINT
+    MINIO_EXTERNAL_ENDPOINT_USE_HTTPS = False  # Default is same as MINIO_USE_HTTPS
+
+    STATIC_URL = f"http://{MINIO_EXTERNAL_ENDPOINT}/{MINIO_STATIC_FILES_BUCKET}/"
+
+    STORAGES = {
+        "staticfiles": {
+            "BACKEND": "django_minio_backend.models.MinioBackendStatic",
+        },
+        "default": {
+            "BACKEND": "django_minio_backend.models.MinioBackend",
+        },
+    }
+else:
+    STATIC_URL = "static/"
+    SESSION_ENGINE = "django.contrib.sessions.backends.cache"
+
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
@@ -177,4 +299,82 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "EBS Internship Test API",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": True,
+    "SERVE_PERMISSIONS": ["rest_framework.permissions.IsAdminUser", "rest_framework.permissions.IsAuthenticated"],
+}
+
+# Email settings
+
+EMAIL_BACKEND = env("EMAIL_BACKEND")
+EMAIL_HOST = env("EMAIL_HOST")
+
+EMAIL_PORT = 1025
+EMAIL_HOST_USER = ""
+EMAIL_HOST_PASSWORD = ""
+
+DEFAULT_FROM_EMAIL = "example@mail.com"
+
+# Logging
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": "WARNING",
+    },
+    "loggers": {
+        "django": {
+            "handlers": ["console"],
+            "level": os.getenv("DJANGO_LOG_LEVEL", "INFO"),
+            "propagate": False,
+        },
+    },
+}
+
+# Celery settings
+
+celery_broker_user = env("CELERY_BROKER_USER")
+celery_broker_pass = env("CELERY_BROKER_PASSWORD")
+celery_broker_host = env("CELERY_BROKER_HOST")
+
+CELERY_ACTIVE = env("CELERY_ACTIVE")
+
+CELERY_BROKER_URL = f"pyamqp://{celery_broker_user}:{celery_broker_pass}@{celery_broker_host}"
+CELERY_CACHE_BACKEND = "default"
+
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_RESULT_BACKEND = "django-db"
+
+CELERY_TASK_SERIALIZER = "json"
+
+# Elastic search
+
+ELASTICSEARCH_ACTIVE = env("ELASTICSEARCH_ACTIVE")
+
+ELASTICSEARCH_DSL = {
+    "default": {
+        "hosts": f"http://{env("ELASTICSEARCH_HOST")}:9200",
+    }
+}
+
+# AllAuth
+
+SITE_ID = 1
+ACCOUNT_LOGOUT_ON_GET = True
+LOGIN_REDIRECT_URL = "/users/profile/"
+LOGOUT_REDIRECT_URL = "/users/profile/"
+
+SOCIALACCOUNT_PROVIDERS = {
+    "github": {
+        "VERIFIED_EMAIL": True,
+        "APPS": [
+            {"client_id": env("OAUTH_CLIENT_ID_GITHUB"), "secret": env("OAUTH_CLIENT_SECRET_GITHUB"), "key": ""},
+        ],
+        "SCOPE": ["user"],
+    }
 }

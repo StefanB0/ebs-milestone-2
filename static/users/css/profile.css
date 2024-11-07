@@ -1,0 +1,74 @@
+body {
+    background-color: #181d27;
+    color: #ffffff;
+    font-family: Arial, sans-serif;
+}
+
+.profile-container {
+    width: 400px;
+    padding: 20px;
+    background-color: #0c4b33;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: start;
+}
+
+.profile-header {
+    text-align: left;
+}
+
+.profile-image {
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+}
+
+.profile-header h1 {
+    color: #ffffff;
+    margin-top: 10px;
+}
+
+.profile-header p {
+    color: #dcdcdc;
+    font-size: 14px;
+}
+
+.profile-info {
+    text-align: left;
+}
+
+.profile-info h2 {
+    color: #ffffff;
+    margin-bottom: 10px;
+}
+
+.profile-info p,
+.profile-info li {
+    color: #ffffff;
+    font-size: 15px;
+}
+
+.profile-info ul {
+    padding-left: 20px;
+}
+
+.login-button {
+    margin-top: 10px;
+    padding: 10px 15px;
+    background-color: #51be95;
+    color: #ffffff;
+    text-decoration: none;
+    border-radius: 5px;
+    text-align: center;
+    display: inline-block;
+    transition: background-color 0.3s ease;
+}
+
+.login-button:hover {
+    background-color: #45a782;
+}

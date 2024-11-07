@@ -1,19 +1,186 @@
-services:
-  app:
+x-milestone-django-app: &x-milestone-django-app
     image: ebs-milestone-2
     build: .
     environment:
-      - DEBUG=true
-      - DATABASE_URL=postgres://admin:adminpass@postgres-db:5432/POSTGRESDB1
+      - DEBUG=false
+      - DB_DEFAULT_ENGINE=postgresql
+      - DB_HOST=postgres-db
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=postgres
+      - DB_PORT=5432
+      - CACHE_DEFAULT_BACKEND=redis
+      - CACHE_HOST=redis-db
+      - CACHE_PORT=6379
+      - EMAIL_HOST=mailhog-mock
+      - CELERY_ACTIVE=true
+      - CELERY_BROKER_USER=admin
+      - CELERY_BROKER_PASSWORD=admin
+      - CELERY_BROKER_HOST=rabbitmq-broker
+      - S3_BACKEND=minio
+      - S3_HOST=minio
+      - ELASTICSEARCH_ACTIVE=true
+      - ELASTICSEARCH_HOST=elasticsearch
+      - OAUTH_CLIENT_ID_GITHUB=${OAUTH_CLIENT_ID_GITHUB}
+      - OAUTH_CLIENT_SECRET_GITHUB=${OAUTH_CLIENT_SECRET_GITHUB}
+    volumes:
+      - ./fixtures:/app/fixtures
+
+services:
+  app:
+    <<: *x-milestone-django-app
     ports:
       - "8000:8000"
-    # tty: true
-    # entrypoint: bash
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+      postgres-db:
+        condition: service_started
+      minio:
+        condition: service_started
+      pg-hero:
+        condition: service_started
+      redis-db:
+        condition: service_started
+      rabbitmq-broker:
+        condition: service_started
+    healthcheck:
+      test: [ "CMD-SHELL", "python manage.py healthcheck" ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+#    tty: true
+#    entrypoint: bash
+
+  celery:
+    <<: *x-milestone-django-app
+    ports:
+      - "5555:5555"
+    depends_on:
+      app:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+      rabbitmq-broker:
+        condition: service_started
+      mailhog-mock:
+        condition: service_started
+    entrypoint: []
+    command: celery -A config worker -l INFO
+
+  celery-beat:
+    <<: *x-milestone-django-app
+    ports:
+      - "5556:5555"
+    depends_on:
+      app:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+      rabbitmq-broker:
+        condition: service_started
+      mailhog-mock:
+        condition: service_started
+    entrypoint: [ ]
+    command: celery -A config beat -l INFO --scheduler django_celery_beat.schedulers:DatabaseScheduler
+
   postgres-db:
     image: postgres:latest
     environment:
-      POSTGRES_USER: admin
-      POSTGRES_DB: POSTGRESDB1
-      POSTGRES_PASSWORD: adminpass
+      POSTGRES_USER: postgres
+      POSTGRES_DB: postgres
+      POSTGRES_PASSWORD: postgres
     ports:
-      - 5432:5432
+      - "5432:5432"
+    command: postgres -c shared_preload_libraries=pg_stat_statements
+    volumes:
+      - ./postgres://docker-entrypoint-initdb.d
+
+  pg-hero:
+    image: ankane/pghero:latest
+    environment:
+      - DATABASE_URL=postgres://postgres:postgres@postgres-db:5432/postgres
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres-db
+    tty: true
+
+  redis-db:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./local/db-data/redis-db:/data/redis
+
+  minio:
+    image: minio/minio:latest
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      - MINIO_ROOT_USER=admin
+      - MINIO_ROOT_PASSWORD=admin-admin
+    command:
+      - server
+      - --address=0.0.0.0:9000
+      - --console-address=0.0.0.0:9001
+      - /data
+    healthcheck:
+      test: [ "CMD", "mc", "ready", "local" ]
+    volumes:
+      - data:/data
+
+  minio_setup:
+    image: minio/mc:latest
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        mc alias set s3local http://minio:9000 admin admin-admin
+        mc ls s3local/django-media-files-bucket || (mc mb s3local/django-media-files-bucket && mc anonymous set public s3local/django-media-files-bucket)
+        mc ls s3local/django-static-files-bucket || (mc mb s3local/django-static-files-bucket && mc anonymous set public s3local/django-static-files-bucket)
+    depends_on:
+      minio:
+        condition: service_healthy
+
+  mailhog-mock:
+    image: mailhog/mailhog
+    ports:
+      - "1025:1025" # SMTP port
+      - "8025:8025" # Dashboard
+
+  rabbitmq-broker:
+    image: rabbitmq
+    ports:
+      - "5672:5672"  # RabbitMQ port
+      - "15672:15672"  # Management UI port
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.3
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+    ports:
+      - "9200:9200"
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 40
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.6.1
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    ports:
+      - "5601:5601"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+
+volumes:
+  data:

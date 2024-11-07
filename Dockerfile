@@ -21,19 +21,13 @@ ENV PATH="/app/.venv/bin:$PATH"
 COPY ./config ./config
 COPY ./manage.py ./manage.py
 COPY ./apps ./apps
+COPY ./templates ./templates
+COPY ./static ./static
 
 EXPOSE 8000
 
-ENV DOCKER=true
-
-ENV DJANGO_SUPERUSER_USERNAME=admin
-ENV DJANGO_SUPERUSER_PASSWORD=admin
-ENV DJANGO_SUPERUSER_EMAIL=admin@admin.com
-
 ENTRYPOINT bash -c " \
-  python manage.py migrate --noinput && \
-  python manage.py createsuperuser --noinput || true && \ 
-  python manage.py runserver 0.0.0.0:8000"
-
-# CMD [ "python",  "manage.py", "runserver", "0.0.0.0:8000"]
-
+    python manage.py migrate --noinput && \
+    python manage.py collectstatic --no-input || true && \
+    python manage.py search_index --rebuild -f || true && \
+    gunicorn config.wsgi:application --bind 0.0.0.0:8000"
