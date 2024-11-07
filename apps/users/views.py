@@ -1,9 +1,10 @@
 from django.contrib.auth import get_user_model
 from django.db.models import Sum, F
+from rest_framework.throttling import UserRateThrottle, AnonRateThrottle
 
 from apps.tasks.models import Task
 from drf_spectacular.utils import extend_schema, OpenApiResponse, inline_serializer
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.viewsets import GenericViewSet
@@ -23,6 +24,8 @@ User = get_user_model()
 class UserViewSet(mixins.RetrieveModelMixin, mixins.ListModelMixin, mixins.UpdateModelMixin, GenericViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
+    permission_classes = [IsAuthenticated]
+    throttle_classes = [UserRateThrottle, AnonRateThrottle]
 
     @extend_schema(responses={200: UserPreviewSerializer})
     def retrieve(self, request, *args, **kwargs):
@@ -90,7 +93,7 @@ class UserViewSet(mixins.RetrieveModelMixin, mixins.ListModelMixin, mixins.Updat
         return Response(response_data, status=status.HTTP_201_CREATED)
 
     @extend_schema(
-        request=UserRegisterSerializer,
+        request=UserLoginSerializer,
         responses={
             201: OpenApiResponse(
                 response=inline_serializer(
