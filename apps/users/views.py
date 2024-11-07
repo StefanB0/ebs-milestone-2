@@ -1,9 +1,10 @@
+from django.contrib.auth import get_user_model
 from django.db.models import Sum, F
+from rest_framework.throttling import UserRateThrottle, AnonRateThrottle
 
 from apps.tasks.models import Task
-from apps.users.models import User
 from drf_spectacular.utils import extend_schema, OpenApiResponse, inline_serializer
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.viewsets import GenericViewSet
@@ -17,10 +18,14 @@ from django.shortcuts import render
 
 from apps.users.serializers import UserSerializer, UserRegisterSerializer, UserLoginSerializer, UserPreviewSerializer
 
+User = get_user_model()
+
 
 class UserViewSet(mixins.RetrieveModelMixin, mixins.ListModelMixin, mixins.UpdateModelMixin, GenericViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
+    permission_classes = [IsAuthenticated]
+    throttle_classes = [UserRateThrottle, AnonRateThrottle]
 
     @extend_schema(responses={200: UserPreviewSerializer})
     def retrieve(self, request, *args, **kwargs):
@@ -40,18 +45,14 @@ class UserViewSet(mixins.RetrieveModelMixin, mixins.ListModelMixin, mixins.Updat
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
 
-        response_data = []
-        for user in queryset:
-            response_data.append(
-                {
-                    "id": user.id,
-                    "username": user.username,
-                    "fullname": f"{user.first_name} {user.last_name}",
-                    "email": user.email,
-                }
-            )
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
 
-        return Response(response_data)
+        serializer = self.get_serializer(queryset, many=True)
+
+        return Response(serializer.data)
 
     @extend_schema(
         request=UserRegisterSerializer,
@@ -92,7 +93,7 @@ class UserViewSet(mixins.RetrieveModelMixin, mixins.ListModelMixin, mixins.Updat
         return Response(response_data, status=status.HTTP_201_CREATED)
 
     @extend_schema(
-        request=UserRegisterSerializer,
+        request=UserLoginSerializer,
         responses={
             201: OpenApiResponse(
                 response=inline_serializer(

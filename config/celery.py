@@ -1,7 +1,7 @@
 import os
+from django.conf import settings
 
 from celery import Celery
-from config.settings import CELERY_ACTIVE
 
 # Set the default Django settings module for the 'celery' program.
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
@@ -17,10 +17,9 @@ app.config_from_object("django.conf:settings", namespace="CELERY")
 # Load task modules from all registered Django apps.
 app.autodiscover_tasks()
 
-if not CELERY_ACTIVE:
-    app.conf.update(
-        celery_always_eager=True,
-    )
+app.conf.update(
+    celery_always_eager=settings.CELERY_ALWAYS_EAGER,
+)
 
 
 @app.task(bind=True, ignore_result=True)

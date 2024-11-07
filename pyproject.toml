@@ -29,6 +29,7 @@ django-elasticsearch-dsl = "^8.0"
 elasticsearch-dsl = "^8.15.4"
 django-allauth = {extras = ["socialaccount"], version = "^65.1.0"}
 requests = "^2.32.3"
+pillow = "^11.0.0"
 
 
 [tool.poetry.group.dev.dependencies]
@@ -43,9 +44,7 @@ line-length = 120
 omit = [
     "**/admin.py",
     "config/*",
-    "apps/common/*",
     "manage.py",
-    "apps/tasks/tasks.py", # celery tasks are not executed in the same shell that runs the tests
     "def __str__",
     "def __str__(self) -> str:",
     ]

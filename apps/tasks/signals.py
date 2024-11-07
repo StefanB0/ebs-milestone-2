@@ -1,8 +1,9 @@
+from django.contrib.auth import get_user_model
 from django.dispatch import Signal, receiver
 
 from apps.tasks.tasks import c_send_mail
-from apps.users.models import User
 
+User = get_user_model()
 
 # Email signal
 task_assigned = Signal()

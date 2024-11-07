@@ -20,7 +20,6 @@
 
 2. Run docker compose `docker compose up -d --build --wait`
 
-
 ## Testing
 
 Start celery

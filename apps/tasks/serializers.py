@@ -46,7 +46,14 @@ class TaskAttachmentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = TaskAttachment
-        fields = ["id", "file", "task"]
+        fields = ["id", "image", "task"]
+
+
+class TaskElasticSearchSerializer(serializers.Serializer):
+    title = serializers.CharField(required=False, max_length=100)
+    description = serializers.CharField(required=False, max_length=200)
+    comment_body = serializers.CharField(required=False, max_length=200)
+    limit = serializers.IntegerField(required=False, min_value=1, max_value=1000, default=20)
 
 
 class TimeLogSerializer(serializers.ModelSerializer):
@@ -59,7 +66,3 @@ class TimeLogSerializer(serializers.ModelSerializer):
 
 class TimeLogTopSerializer(serializers.Serializer):
     limit = serializers.IntegerField(default=20, min_value=1, required=False)
-
-
-class EmptySerializer(serializers.Serializer):
-    pass

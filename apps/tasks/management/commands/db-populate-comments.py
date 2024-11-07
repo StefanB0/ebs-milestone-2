@@ -1,8 +1,10 @@
 import random
 
+from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
-from apps.users.models import User
 from apps.tasks.models import Task, Comment
+
+User = get_user_model()
 
 
 class Command(BaseCommand):

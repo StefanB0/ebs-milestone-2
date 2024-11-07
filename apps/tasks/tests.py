@@ -2,21 +2,24 @@ import datetime
 import logging
 from unittest import skipUnless
 
-
+from django.contrib.auth import get_user_model
 from django.core import mail
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 from django.utils import timezone
+from django.conf import settings
 
 from rest_framework import status
 from rest_framework.test import APIClient, APITestCase
+from rest_framework.throttling import ScopedRateThrottle, UserRateThrottle
 
+from apps.tasks.views import TaskViewSet, CommentViewSet, TaskTimeLogViewSet, ElasticSearchViewSet
 from config.celery import app as celery_app
-from config.settings import ELASTICSEARCH_ACTIVE
 
-from apps.users.models import User
 from apps.tasks.models import Task, Comment, TimeLog, TaskAttachment
 from apps.tasks.serializers import TaskSerializer, CommentSerializer, TimeLogSerializer
+
+User = get_user_model()
 
 
 class TestTasks(APITestCase):
@@ -27,6 +30,7 @@ class TestTasks(APITestCase):
         celery_app.conf.update(
             task_always_eager=True,
         )
+        TaskViewSet.throttle_classes = []
 
         self.client = APIClient()
 
@@ -52,7 +56,7 @@ class TestTasks(APITestCase):
         response = self.client.get(reverse("tasks-list"))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), Task.objects.filter(user=self.user).count())
+        self.assertEqual(len(response.data["results"]), Task.objects.filter(user=self.user).count())
         self.assertContains(response, "id")
         self.assertContains(response, "title")
 
@@ -62,7 +66,7 @@ class TestTasks(APITestCase):
         response = self.client.get(reverse("tasks-list"))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), Task.objects.filter(user=self.user2).count())
+        self.assertEqual(len(response.data["results"]), Task.objects.filter(user=self.user2).count())
 
     # Check if time_spent is in response
     def test_get_tasks_check_time(self) -> None:
@@ -77,7 +81,7 @@ class TestTasks(APITestCase):
         for time_log in task3_log_set.all():
             task3_time_spent += time_log.duration
 
-        r_task3 = next(task for task in response.data if task["id"] == 3)
+        r_task3 = next(task for task in response.data["results"] if task["id"] == 3)
         r_time = r_task3["time_spent"]
         r_time = datetime.datetime.strptime(r_time, "%H:%M:%S")
         r_time = timezone.timedelta(hours=r_time.hour, minutes=r_time.minute, seconds=r_time.second)
@@ -86,14 +90,14 @@ class TestTasks(APITestCase):
     # Check if time_spent is calculated correctly for task without timelogs
     def test_get_tasks_calculate_time_no_timelogs(self) -> None:
         response = self.client.get(reverse("tasks-list"))
-        r_task2 = next(task for task in response.data if task["id"] == 2)
+        r_task2 = next(task for task in response.data["results"] if task["id"] == 2)
         r_time = r_task2["time_spent"]
         self.assertEqual(r_time, None)
 
     def test_get_user_tasks(self) -> None:
         response = self.client.get(reverse("tasks-user", kwargs={"pk": 1}))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), Task.objects.filter(user=self.user).count())
+        self.assertEqual(len(response.data["results"]), Task.objects.filter(user=self.user).count())
 
     # User ID does not exist
     def test_get_user_tasks_no_user(self) -> None:
@@ -105,7 +109,7 @@ class TestTasks(APITestCase):
         response = self.client.get(reverse("tasks-all-tasks"))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), len(self.tasks))
+        self.assertEqual(len(response.data["results"]), len(self.tasks))
         self.assertContains(response, "title")
         self.assertContains(response, "id")
 
@@ -136,41 +140,37 @@ class TestTasks(APITestCase):
         completed_tasks = Task.objects.filter(is_completed=True, user=self.user)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), completed_tasks.count())
-        self.assertEqual(response.data[0]["title"], completed_tasks[0].title)
-        self.assertEqual(response.data[0]["id"], completed_tasks[0].id)
-        self.assertContains(response, "title")
-        self.assertContains(response, "id")
+        self.assertEqual(len(response.data["results"]), completed_tasks.count())
+        self.assertEqual(response.data["results"][0]["title"], completed_tasks[0].title)
+        self.assertEqual(response.data["results"][0]["id"], completed_tasks[0].id)
 
     def test_get_incomplete_tasks(self) -> None:
         self.client.force_authenticate(user=self.user)
         response = self.client.get(reverse("tasks-incomplete-tasks"))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 3)
+        self.assertEqual(len(response.data["results"]), 3)
 
     # Search full title
     def test_search_task(self) -> None:
         response = self.client.post(reverse("tasks-search"), {"search": "Test task 1"})
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]["title"], "Test task 1")
-        self.assertEqual(response.data[0]["id"], 1)
-        self.assertContains(response, "title")
-        self.assertContains(response, "id")
+        self.assertEqual(len(response.data["results"]), 1)
+        self.assertEqual(response.data["results"][0]["title"], "Test task 1")
+        self.assertEqual(response.data["results"][0]["id"], 1)
 
     # Search partial title
     def test_search_task_partial(self) -> None:
         response = self.client.post(reverse("tasks-search"), {"search": "Finish"})
         task_nr = Task.objects.filter(title__icontains="Finish").count()
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), task_nr)
+        self.assertEqual(len(response.data["results"]), task_nr)
 
     # Title does not exist
     def test_search_task_no_task(self) -> None:
         response = self.client.post(reverse("tasks-search"), {"search": "Idempotent"})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 0)
+        self.assertEqual(len(response.data["results"]), 0)
 
     def test_assign_task(self) -> None:
         response = self.client.patch(reverse("tasks-assign-task", args=[1]), {"user": self.user2.id})
@@ -272,6 +272,18 @@ class TestTasks(APITestCase):
         response = self.client.delete(reverse("tasks-detail", args=[9999]))
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
+    def test_throttle(self):
+        TaskViewSet.throttle_classes = [UserRateThrottle]
+
+        response = self.client.get(reverse("tasks-detail", args=[1]))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        for i in range(0, 10):
+            self.client.get(reverse("tasks-detail", args=[1]))
+
+        response = self.client.get(reverse("tasks-detail", args=[1]))
+        self.assertEqual(response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+
 
 class TestComments(APITestCase):
     fixtures = ["fixtures/users", "fixtures/tasks", "fixtures/comments"]
@@ -281,6 +293,7 @@ class TestComments(APITestCase):
         celery_app.conf.update(
             task_always_eager=True,
         )
+        CommentViewSet.throttle_classes = []
 
         self.client = APIClient()
 
@@ -315,12 +328,21 @@ class TestComments(APITestCase):
         response = self.client.get(reverse("tasks-comments", args=[1]))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), comment_nr)
+        self.assertEqual(len(response.data["results"]), comment_nr)
 
     # Comment does not exist
     def test_get_comments_no_comment(self) -> None:
         response = self.client.get(reverse("tasks-comments", args=[9999]))
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_throttle(self):
+        CommentViewSet.throttle_classes = [UserRateThrottle]
+
+        for i in range(0, 10):
+            self.client.get(reverse("tasks-comments", args=[1]))
+
+        response = self.client.get(reverse("tasks-comments", args=[1]))
+        self.assertEqual(response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
 
 
 class TestMail(APITestCase):
@@ -331,6 +353,8 @@ class TestMail(APITestCase):
         celery_app.conf.update(
             task_always_eager=True,
         )
+        TaskViewSet.throttle_classes = []
+        CommentViewSet.throttle_classes = []
 
         self.client = APIClient()
 
@@ -378,6 +402,8 @@ class TestTimeLog(APITestCase):
         celery_app.conf.update(
             task_always_eager=True,
         )
+        TaskViewSet.throttle_classes = []
+        TaskTimeLogViewSet.throttle_classes = []
 
         self.client = APIClient()
 
@@ -545,14 +571,14 @@ class TestTimeLog(APITestCase):
 
         response = self.client.get(reverse("tasks-timer-logs", args=[task.id]))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), task.timelog_set.count())
+        self.assertEqual(len(response.data["results"]), task.timelog_set.count())
 
     # Get timelogs for task that does not have any timelogs
     def test_get_time_logs_no_logs(self) -> None:
         task = Task.objects.get(id=8)
         response = self.client.get(reverse("tasks-timer-logs", args=[task.id]))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 0)
+        self.assertEqual(len(response.data["results"]), 0)
 
     # Get timelogs for task that does not belong to user
     def test_get_time_logs_foreign(self) -> None:
@@ -612,52 +638,66 @@ class TestTimeLog(APITestCase):
         self.assertEqual(response2.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response2.data), 5)
 
+    def test_throttle(self):
+        TaskTimeLogViewSet.throttle_classes = [UserRateThrottle]
+        for i in range(0, 10):
+            self.client.get(reverse("timelogs-top"))
+
+        response = self.client.get(reverse("timelogs-top"))
+        self.assertEqual(response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+
 
 class TestMinIO(APITestCase):
     fixtures = ["fixtures/users", "fixtures/tasks"]
 
     def setUp(self) -> None:
-        self.mock_photo_prefix = "static/mock/"
-        self.photos = ["Duck_" + str(i) + ".png" for i in range(1, 10)]
-
         logging.disable(logging.CRITICAL)
+        TaskViewSet.throttle_classes = []
+
+        self.image_name = "Duck_1"
+        with open("static/mock/" + self.image_name + ".png", "rb") as image_file:
+            image_content = image_file.read()
+        self.mock_image = SimpleUploadedFile(self.image_name + ".png", image_content, content_type="image/png")
+
         self.client = APIClient()
         self.user = User.objects.get(pk=1)
-        self.tasks = TaskSerializer(Task.objects.all(), many=True).data
-
         self.client.force_authenticate(user=self.user)
+
+    def tearDown(self) -> None:
+        queryset = TaskAttachment.objects.all()
+        queryset.delete()
 
     def test_task_attachment_creation(self):
         task = Task.objects.first()
-        file = SimpleUploadedFile(self.mock_photo_prefix + self.photos[0], b"file_content", content_type="image/png")
-        attachment = TaskAttachment.objects.create(task=task, file=file)
+        instance = TaskAttachment.objects.create(task=task, image=self.mock_image)
 
-        self.assertEqual(attachment.task, task)
-        self.assertTrue(self.photos[0].split(".")[0] in attachment.file.name, str(attachment.file.name))
+        self.assertEqual(instance.task, task)
+        self.assertTrue(self.image_name in instance.image.name, str(instance.image.name))
+
+        instance.delete()
 
     def test_upload_attachment(self):
         task = Task.objects.first()
-        file = SimpleUploadedFile(self.photos[0], b"file_content", content_type="image/png")
-        response = self.client.post(reverse("tasks-attachment", args=[task.id]), {"file": file}, format="multipart")
+        response = self.client.post(
+            reverse("tasks-attachment", args=[task.id]), {"image": self.mock_image}, format="multipart"
+        )
 
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response)
         self.assertIn("attach_id", response.data)
-        self.assertIn("task_id:", response.data)
-        self.assertEqual(task.id, response.data["task_id:"], response.data)
+        self.assertIn("task_id", response.data)
+        self.assertEqual(task.id, response.data["task_id"], response.data)
 
     def test_get_attachments(self):
         task = Task.objects.first()
-        TaskAttachment.objects.create(
-            task=task, file=SimpleUploadedFile(self.photos[1], b"file_content", content_type="image/png")
-        )
+        TaskAttachment.objects.create(task=task, image=self.mock_image)
 
         response = self.client.get(reverse("tasks-attachments", args=[task.id]))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertGreaterEqual(len(response.data), 1)
-        self.assertIn(self.photos[1].split(".")[0], response.data[0]["file"])
+        self.assertGreaterEqual(len(response.data["results"]), 1)
+        self.assertIn(self.image_name, response.data["results"][0]["image"])
 
-    def test_get_attachment_not_exist(self):
+    def test_get_attachment_task_not_exist(self):
         response = self.client.get(reverse("tasks-attachments", args=[999]))
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
@@ -667,7 +707,7 @@ class TestMinIO(APITestCase):
         task = Task.objects.last()
 
         response = self.client.get(reverse("tasks-attachments", args=[task.id]))
-        self.assertEqual(len(response.data), 0)
+        self.assertEqual(len(response.data["results"]), 0)
 
 
 class TestElasticSearch(APITestCase):
@@ -675,49 +715,50 @@ class TestElasticSearch(APITestCase):
 
     def setUp(self) -> None:
         logging.disable(logging.CRITICAL)
+        ElasticSearchViewSet.throttle_classes = []
 
         self.client = APIClient()
         user1 = User.objects.get(pk=1)
         self.client.force_authenticate(user=user1)
 
-    @skipUnless(ELASTICSEARCH_ACTIVE, "ElasticSearch is not active")
+    @skipUnless(settings.ELASTICSEARCH_ACTIVE, "ElasticSearch is not active")
     def test_task_search_no_params(self):
         response = self.client.get(reverse("elasticsearch-task"))
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(response.json(), {"error": "No query was provided"}, response)
 
-    @skipUnless(ELASTICSEARCH_ACTIVE, "ElasticSearch is not active")
+    @skipUnless(settings.ELASTICSEARCH_ACTIVE, "ElasticSearch is not active")
     def test_task_search_title_param(self):
         response = self.client.get(reverse("elasticsearch-task"), {"title": "Test task"})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertGreaterEqual(len(response.data), 1)
         self.assertIn("Test task", response.data[0]["title"], response.data)
 
-    @skipUnless(ELASTICSEARCH_ACTIVE, "ElasticSearch is not active")
+    @skipUnless(settings.ELASTICSEARCH_ACTIVE, "ElasticSearch is not active")
     def test_task_search_description_param(self):
         response = self.client.get(reverse("elasticsearch-task"), {"description": "week"})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertGreaterEqual(len(response.data), 2)
 
-    @skipUnless(ELASTICSEARCH_ACTIVE, "ElasticSearch is not active")
+    @skipUnless(settings.ELASTICSEARCH_ACTIVE, "ElasticSearch is not active")
     def test_task_search_comment_body_param(self):
-        response = self.client.get(reverse("elasticsearch-task"), {"comment-body": "Test comment"})
+        response = self.client.get(reverse("elasticsearch-task"), {"comment_body": "Test comment"})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertGreaterEqual(len(response.data), 1)
 
-    @skipUnless(ELASTICSEARCH_ACTIVE, "ElasticSearch is not active")
+    @skipUnless(settings.ELASTICSEARCH_ACTIVE, "ElasticSearch is not active")
     def test_task_search_with_limit(self):
         response = self.client.get(reverse("elasticsearch-task"), {"description": "week", "limit": 1})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertGreaterEqual(len(response.data), 1)
 
-    @skipUnless(ELASTICSEARCH_ACTIVE, "ElasticSearch is not active")
+    @skipUnless(settings.ELASTICSEARCH_ACTIVE, "ElasticSearch is not active")
     def test_task_search_multiple_params(self):
         response = self.client.get(reverse("elasticsearch-task"), {"title": "dentist", "description": "week"})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertGreaterEqual(len(response.data), 1)
 
-    @skipUnless(ELASTICSEARCH_ACTIVE, "ElasticSearch is not active")
+    @skipUnless(settings.ELASTICSEARCH_ACTIVE, "ElasticSearch is not active")
     def test_task_update_task(self):
         response = self.client.get(reverse("elasticsearch-task"), {"title": "cat"})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -731,9 +772,9 @@ class TestElasticSearch(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertLessEqual(len(response.data), 1)
 
-    @skipUnless(ELASTICSEARCH_ACTIVE, "ElasticSearch is not active")
+    @skipUnless(settings.ELASTICSEARCH_ACTIVE, "ElasticSearch is not active")
     def test_task_update_comment(self):
-        response = self.client.get(reverse("elasticsearch-task"), {"title": "spider"})
+        response = self.client.get(reverse("elasticsearch-task"), {"comment_body": "spider"})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertLessEqual(len(response.data), 0)
 
@@ -741,6 +782,14 @@ class TestElasticSearch(APITestCase):
         comment_instance.body = "test spider"
         comment_instance.save()
 
-        response = self.client.get(reverse("elasticsearch-task"), {"comment-body": "spider"})
+        response = self.client.get(reverse("elasticsearch-task"), {"comment_body": "spider"})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertLessEqual(len(response.data), 1)
+
+    @skipUnless(settings.ELASTICSEARCH_ACTIVE, "ElasticSearch is not active")
+    def test_throttle(self):
+        ElasticSearchViewSet.throttle_classes = [ScopedRateThrottle]
+
+        self.client.get(reverse("elasticsearch-task"), {"comment_body": "spider"})
+        response = self.client.get(reverse("elasticsearch-task"), {"comment_body": "spider"})
+        self.assertEqual(response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)

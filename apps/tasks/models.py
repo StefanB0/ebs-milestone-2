@@ -4,13 +4,11 @@ import math
 from django.db import models
 from django.db.models import Sum
 from django.utils import timezone
-
-from django_minio_backend import iso_date_prefix
+from django.contrib.auth import get_user_model
 
 from apps.tasks.exceptions import TimeLogError
-from apps.users.models import User
 
-
+User = get_user_model()
 logger = logging.getLogger(__name__)
 
 
@@ -25,12 +23,9 @@ class Task(models.Model):
 
     @property
     def time_spent(self):
-        time_logs = self.get_time_logs().exclude(duration=None)
+        time_logs = self.timelog_set.all().exclude(duration=None)
         time_spent = time_logs.aggregate(Sum("duration"))["duration__sum"]
         return time_spent
-
-    def get_time_logs(self):
-        return self.timelog_set.all()
 
     def assign_user(self, new_user):
         self.user = new_user
@@ -73,9 +68,9 @@ class Comment(models.Model):
 
 
 class TaskAttachment(models.Model):
-    file = models.FileField(
+    image = models.ImageField(
         verbose_name="Task Photo",
-        upload_to=iso_date_prefix,
+        upload_to="task-attachments/%Y-%m-%d/",
     )
     task = models.ForeignKey(Task, on_delete=models.CASCADE)
 

@@ -1,8 +1,14 @@
-from apps.users.models import User
+from django.contrib.auth import get_user_model
 from django.test import TestCase
+
 from rest_framework.reverse import reverse
 from rest_framework.test import APIClient
 from rest_framework import status
+from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
+
+from apps.users.views import UserViewSet
+
+User = get_user_model()
 
 
 class TestUsers(TestCase):
@@ -11,6 +17,7 @@ class TestUsers(TestCase):
     def setUp(self) -> None:
         self.client = APIClient()
         self.test_user1 = User.objects.get(email="user1@email.com")
+        UserViewSet.throttle_classes = []
 
     def test_register(self) -> None:
         response = self.client.post(
@@ -113,7 +120,7 @@ class TestUsers(TestCase):
         self.client.force_authenticate(user=self.test_user1)
         response = self.client.get(reverse("users-list"))
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data), 6)
+        self.assertEqual(len(response.data["results"]), 6, response.data)
 
     def test_get_user(self) -> None:
         self.client.force_authenticate(user=self.test_user1)
@@ -138,3 +145,20 @@ class TestUsers(TestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response["Content-Type"], "text/html; charset=utf-8")
+
+    def test_throttle(self):
+        self.client.force_authenticate(user=self.test_user1)
+        UserViewSet.throttle_classes = [UserRateThrottle, AnonRateThrottle]
+
+        for i in range(0, 10):
+            self.client.get(reverse("users-list"))
+        response = self.client.get(reverse("users-list"))
+        self.assertEqual(response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+
+    def test_throttle_anon(self):
+        UserViewSet.throttle_classes = [UserRateThrottle, AnonRateThrottle]
+        login_data = {"email": "user1@email.com", "password": "testpassword"}
+
+        self.client.post(reverse("users-login"), login_data)
+        response = self.client.post(reverse("users-login"), login_data)
+        self.assertEqual(response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)

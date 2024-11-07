@@ -1,10 +1,13 @@
 import logging
 
 from django.core.cache import cache
+from django.contrib.auth import get_user_model
 from drf_spectacular.openapi import OpenApiExample, OpenApiTypes
 from drf_spectacular.utils import extend_schema, OpenApiResponse, inline_serializer, OpenApiParameter
 from elasticsearch_dsl.query import Q
+from rest_framework.pagination import LimitOffsetPagination
 from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework.throttling import UserRateThrottle, ScopedRateThrottle
 
 from rest_framework.viewsets import ModelViewSet, GenericViewSet
 from rest_framework.permissions import IsAuthenticated
@@ -21,21 +24,23 @@ from apps.tasks.serializers import (
     TaskUpdateSerializer,
     TaskSearchSerializer,
     CommentSerializer,
-    EmptySerializer,
     TimeLogSerializer,
     TimeLogTopSerializer,
     TaskAttachmentSerializer,
+    TaskElasticSearchSerializer,
 )
 from apps.tasks.signals import task_comment, task_assigned, task_complete, task_undo
-from apps.users.models import User
+
+User = get_user_model()
 
 logger = logging.getLogger("django")
 
 
 class TaskViewSet(ModelViewSet):
+    queryset = Task.objects.all()
     serializer_class = TaskSerializer
     permission_classes = [IsAuthenticated]
-    queryset = Task.objects.all()
+    throttle_classes = [UserRateThrottle]
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -48,14 +53,25 @@ class TaskViewSet(ModelViewSet):
     def list(self, request, *args, **kwargs):
         queryset = Task.objects.filter(user=request.user)
 
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = TaskPreviewSerializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
         serializer = TaskPreviewSerializer(queryset, many=True)
         return Response(serializer.data)
 
     @extend_schema(responses={200: TaskPreviewSerializer(many=True)})
-    @action(detail=False, methods=["GET"], url_path="all", url_name="all-tasks")
+    @action(detail=False, methods=["GET"], url_path="all", url_name="all-tasks", serializer_class=TaskPreviewSerializer)
     def all_tasks(self, request, *args, **kwargs):
-        queryset = Task.objects.all()
-        serializer = TaskPreviewSerializer(queryset, many=True)
+        queryset = self.filter_queryset(self.get_queryset())
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
     #
@@ -67,6 +83,12 @@ class TaskViewSet(ModelViewSet):
             return Response(status=status.HTTP_404_NOT_FOUND)
 
         queryset = Task.objects.filter(user=user_id)
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = TaskPreviewSerializer(queryset, many=True)
+            return self.get_paginated_response(serializer.data)
+
         serializer = TaskPreviewSerializer(queryset, many=True)
         return Response(serializer.data)
 
@@ -74,6 +96,12 @@ class TaskViewSet(ModelViewSet):
     @action(detail=False, methods=["GET"], url_path="completed")
     def completed_tasks(self, request, *args, **kwargs):
         queryset = Task.objects.filter(is_completed=True, user=request.user)
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = TaskPreviewSerializer(queryset, many=True)
+            return self.get_paginated_response(serializer.data)
+
         serializer = TaskPreviewSerializer(queryset, many=True)
         return Response(serializer.data)
 
@@ -81,6 +109,12 @@ class TaskViewSet(ModelViewSet):
     @action(detail=False, methods=["GET"], url_path="incomplete")
     def incomplete_tasks(self, request, *args, **kwargs):
         queryset = Task.objects.filter(is_completed=False, user=request.user)
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = TaskPreviewSerializer(queryset, many=True)
+            return self.get_paginated_response(serializer.data)
+
         serializer = TaskPreviewSerializer(queryset, many=True)
         return Response(serializer.data)
 
@@ -90,6 +124,12 @@ class TaskViewSet(ModelViewSet):
         search_serializer = self.get_serializer(data=request.data)
         search_serializer.is_valid(raise_exception=True)
         queryset = Task.objects.filter(title__icontains=search_serializer.validated_data["search"])
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = TaskPreviewSerializer(queryset, many=True)
+            return self.get_paginated_response(serializer.data)
+
         serializer = TaskPreviewSerializer(queryset, many=True)
         return Response(serializer.data)
 
@@ -133,7 +173,7 @@ class TaskViewSet(ModelViewSet):
             )
         }
     )
-    @action(detail=True, methods=["PATCH"], url_path="complete", serializer_class=EmptySerializer)
+    @action(detail=True, methods=["PATCH"], url_path="complete", serializer_class=serializers.Serializer)
     def complete_task(self, request, *args, **kwargs):
         if not Task.objects.filter(id=kwargs["pk"]).exists():
             return Response({"error": "Task does not exist"}, status=status.HTTP_404_NOT_FOUND)
@@ -157,7 +197,7 @@ class TaskViewSet(ModelViewSet):
             )
         }
     )
-    @action(detail=True, methods=["PATCH"], url_path="undo", serializer_class=EmptySerializer)
+    @action(detail=True, methods=["PATCH"], url_path="undo", serializer_class=serializers.Serializer)
     def undo_task(self, request, *args, **kwargs):
         if not Task.objects.filter(id=kwargs["pk"]).exists():
             return Response({"error": "Task does not exist"}, status=status.HTTP_404_NOT_FOUND)
@@ -178,14 +218,20 @@ class TaskViewSet(ModelViewSet):
             )
         }
     )
-    @action(detail=True, methods=["GET"], url_path="comments")
+    @action(detail=True, methods=["GET"], pagination_class=LimitOffsetPagination, url_path="comments")
     def comments(self, request, *args, **kwargs):
         if not Task.objects.filter(id=kwargs["pk"]).exists():
             return Response({"error": "Task does not exist"}, status=status.HTTP_404_NOT_FOUND)
 
-        comments = Comment.objects.filter(task=kwargs["pk"])
-        response_data = [comment.body for comment in comments]
-        return Response(response_data)
+        queryset = Comment.objects.filter(task=kwargs["pk"])
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = CommentSerializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = CommentSerializer(queryset, many=True)
+        return Response(serializer.data)
 
     @extend_schema(
         responses={
@@ -198,7 +244,7 @@ class TaskViewSet(ModelViewSet):
             ),
         }
     )
-    @action(detail=True, methods=["PATCH"], url_path="start-timer", serializer_class=EmptySerializer)
+    @action(detail=True, methods=["PATCH"], url_path="start-timer", serializer_class=serializers.Serializer)
     def start_timer(self, request, *args, **kwargs):
         if not Task.objects.filter(id=kwargs["pk"]).exists():
             return Response({"error": "Task does not exist"}, status=status.HTTP_404_NOT_FOUND)
@@ -216,7 +262,7 @@ class TaskViewSet(ModelViewSet):
             )
         }
     )
-    @action(detail=True, methods=["PATCH"], url_path="stop-timer", serializer_class=EmptySerializer)
+    @action(detail=True, methods=["PATCH"], url_path="stop-timer", serializer_class=serializers.Serializer)
     def stop_timer(self, request, *args, **kwargs):
         if not Task.objects.filter(id=kwargs["pk"]).exists():
             return Response({"error": "Task does not exist"}, status=status.HTTP_404_NOT_FOUND)
@@ -235,13 +281,19 @@ class TaskViewSet(ModelViewSet):
             return Response({"error": "Task does not exist"}, status=status.HTTP_404_NOT_FOUND)
 
         task = Task.objects.get(id=kwargs["pk"])
-        time_logs = task.get_time_logs()
-        serializer = self.get_serializer(time_logs, many=True)
+        queryset = task.timelog_set.all()
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = TimeLogSerializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = TimeLogSerializer(queryset, many=True)
         return Response(serializer.data)
 
     @extend_schema(
         request={
-            "multipart/form-data": {"type": "object", "properties": {"file": {"type": "string", "format": "binary"}}}
+            "multipart/form-data": {"type": "object", "properties": {"image": {"type": "string", "format": "binary"}}}
         },
         responses={
             201: OpenApiResponse(
@@ -261,10 +313,10 @@ class TaskViewSet(ModelViewSet):
         request_data["task"] = task.id
         serializer = TaskAttachmentSerializer(data=request_data)
 
-        serializer.is_valid()
+        serializer.is_valid(raise_exception=False)
         instance = serializer.save()
 
-        return Response({"attach_id": instance.id, "task_id:": task.id}, status=status.HTTP_201_CREATED)
+        return Response({"attach_id": instance.id, "task_id": task.id}, status=status.HTTP_201_CREATED)
 
     @extend_schema(responses={200: TaskAttachmentSerializer(many=True)})
     @action(detail=True, methods=["GET"], serializer_class=TaskAttachmentSerializer)
@@ -272,15 +324,21 @@ class TaskViewSet(ModelViewSet):
         if not Task.objects.filter(id=kwargs["pk"]).exists():
             return Response({"error": "Task does not exist"}, status=status.HTTP_404_NOT_FOUND)
 
-        attachments = TaskAttachment.objects.filter(task=kwargs["pk"])
-        serializer = self.get_serializer(attachments, many=True)
+        queryset = TaskAttachment.objects.filter(task=kwargs["pk"])
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
 
 class CommentViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, mixins.UpdateModelMixin, GenericViewSet):
-    permission_classes = [IsAuthenticated]
-    serializer_class = CommentSerializer
     queryset = Comment.objects.all()
+    serializer_class = CommentSerializer
+    permission_classes = [IsAuthenticated]
+    throttle_classes = [UserRateThrottle]
 
     @extend_schema(
         request=CommentSerializer,
@@ -304,8 +362,9 @@ class CommentViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, mixins.Upda
 
 
 class TaskTimeLogViewSet(mixins.CreateModelMixin, GenericViewSet):
-    permission_classes = [IsAuthenticated]
     serializer_class = TimeLogSerializer
+    permission_classes = [IsAuthenticated]
+    throttle_classes = [UserRateThrottle]
 
     @extend_schema(
         responses={
@@ -365,7 +424,14 @@ class TaskTimeLogViewSet(mixins.CreateModelMixin, GenericViewSet):
         return Response({"month_time_spent": month_time_spent})
 
     @extend_schema(responses={200: TimeLogSerializer(many=True)})
-    @action(detail=False, methods=["GET"], url_path="top", url_name="top", serializer_class=TimeLogTopSerializer)
+    @action(
+        detail=False,
+        methods=["GET"],
+        url_path="top",
+        url_name="top",
+        serializer_class=TimeLogTopSerializer,
+        pagination_class=None,
+    )
     def top_logs(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.query_params)
         serializer.is_valid(raise_exception=True)
@@ -385,6 +451,8 @@ class TaskTimeLogViewSet(mixins.CreateModelMixin, GenericViewSet):
 
 class ElasticSearchViewSet(GenericViewSet):
     permission_classes = [IsAuthenticated]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "elasticsearch"
 
     @extend_schema(
         parameters=[
@@ -403,7 +471,7 @@ class ElasticSearchViewSet(GenericViewSet):
                 description="Description of the task (optional)",
             ),
             OpenApiParameter(
-                name="comment-body",
+                name="comment_body",
                 type=OpenApiTypes.STR,
                 location=OpenApiParameter.QUERY,
                 required=False,
@@ -421,10 +489,14 @@ class ElasticSearchViewSet(GenericViewSet):
     )
     @action(detail=False, methods=["GET"], url_path="task", url_name="task")
     def task_search(self, request, *args, **kwargs):
-        title = request.query_params.get("title")
-        description = request.query_params.get("description")
-        comment_body = request.query_params.get("comment-body")
-        limit = request.query_params.get("limit")
+        serializer = TaskElasticSearchSerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+        validated_data = serializer.validated_data
+
+        title = validated_data.get("title")
+        description = validated_data.get("description")
+        comment_body = validated_data.get("comment_body")
+        limit = validated_data.get("limit")
 
         if not limit:
             limit = 20
