@@ -11,7 +11,9 @@ from django.conf import settings
 
 from rest_framework import status
 from rest_framework.test import APIClient, APITestCase
+from rest_framework.throttling import ScopedRateThrottle, UserRateThrottle
 
+from apps.tasks.views import TaskViewSet, CommentViewSet, TaskTimeLogViewSet, ElasticSearchViewSet
 from config.celery import app as celery_app
 
 from apps.tasks.models import Task, Comment, TimeLog, TaskAttachment
@@ -28,6 +30,7 @@ class TestTasks(APITestCase):
         celery_app.conf.update(
             task_always_eager=True,
         )
+        TaskViewSet.throttle_classes = []
 
         self.client = APIClient()
 
@@ -269,6 +272,18 @@ class TestTasks(APITestCase):
         response = self.client.delete(reverse("tasks-detail", args=[9999]))
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
+    def test_throttle(self):
+        TaskViewSet.throttle_classes = [UserRateThrottle]
+
+        response = self.client.get(reverse("tasks-detail", args=[1]))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        for i in range(0, 10):
+            self.client.get(reverse("tasks-detail", args=[1]))
+
+        response = self.client.get(reverse("tasks-detail", args=[1]))
+        self.assertEqual(response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+
 
 class TestComments(APITestCase):
     fixtures = ["fixtures/users", "fixtures/tasks", "fixtures/comments"]
@@ -278,6 +293,7 @@ class TestComments(APITestCase):
         celery_app.conf.update(
             task_always_eager=True,
         )
+        CommentViewSet.throttle_classes = []
 
         self.client = APIClient()
 
@@ -319,6 +335,15 @@ class TestComments(APITestCase):
         response = self.client.get(reverse("tasks-comments", args=[9999]))
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
+    def test_throttle(self):
+        CommentViewSet.throttle_classes = [UserRateThrottle]
+
+        for i in range(0, 10):
+            self.client.get(reverse("tasks-comments", args=[1]))
+
+        response = self.client.get(reverse("tasks-comments", args=[1]))
+        self.assertEqual(response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+
 
 class TestMail(APITestCase):
     fixtures = ["fixtures/users", "fixtures/tasks", "fixtures/comments"]
@@ -328,6 +353,8 @@ class TestMail(APITestCase):
         celery_app.conf.update(
             task_always_eager=True,
         )
+        TaskViewSet.throttle_classes = []
+        CommentViewSet.throttle_classes = []
 
         self.client = APIClient()
 
@@ -375,6 +402,8 @@ class TestTimeLog(APITestCase):
         celery_app.conf.update(
             task_always_eager=True,
         )
+        TaskViewSet.throttle_classes = []
+        TaskTimeLogViewSet.throttle_classes = []
 
         self.client = APIClient()
 
@@ -609,12 +638,21 @@ class TestTimeLog(APITestCase):
         self.assertEqual(response2.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response2.data), 5)
 
+    def test_throttle(self):
+        TaskTimeLogViewSet.throttle_classes = [UserRateThrottle]
+        for i in range(0, 10):
+            self.client.get(reverse("timelogs-top"))
+
+        response = self.client.get(reverse("timelogs-top"))
+        self.assertEqual(response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+
 
 class TestMinIO(APITestCase):
     fixtures = ["fixtures/users", "fixtures/tasks"]
 
     def setUp(self) -> None:
         logging.disable(logging.CRITICAL)
+        TaskViewSet.throttle_classes = []
 
         self.image_name = "Duck_1"
         with open("static/mock/" + self.image_name + ".png", "rb") as image_file:
@@ -677,6 +715,7 @@ class TestElasticSearch(APITestCase):
 
     def setUp(self) -> None:
         logging.disable(logging.CRITICAL)
+        ElasticSearchViewSet.throttle_classes = []
 
         self.client = APIClient()
         user1 = User.objects.get(pk=1)
@@ -746,3 +785,11 @@ class TestElasticSearch(APITestCase):
         response = self.client.get(reverse("elasticsearch-task"), {"comment_body": "spider"})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertLessEqual(len(response.data), 1)
+
+    @skipUnless(settings.ELASTICSEARCH_ACTIVE, "ElasticSearch is not active")
+    def test_throttle(self):
+        ElasticSearchViewSet.throttle_classes = [ScopedRateThrottle]
+
+        self.client.get(reverse("elasticsearch-task"), {"comment_body": "spider"})
+        response = self.client.get(reverse("elasticsearch-task"), {"comment_body": "spider"})
+        self.assertEqual(response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)

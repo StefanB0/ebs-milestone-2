@@ -7,6 +7,7 @@ from drf_spectacular.utils import extend_schema, OpenApiResponse, inline_seriali
 from elasticsearch_dsl.query import Q
 from rest_framework.pagination import LimitOffsetPagination
 from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework.throttling import UserRateThrottle, ScopedRateThrottle
 
 from rest_framework.viewsets import ModelViewSet, GenericViewSet
 from rest_framework.permissions import IsAuthenticated
@@ -36,9 +37,10 @@ logger = logging.getLogger("django")
 
 
 class TaskViewSet(ModelViewSet):
+    queryset = Task.objects.all()
     serializer_class = TaskSerializer
     permission_classes = [IsAuthenticated]
-    queryset = Task.objects.all()
+    throttle_classes = [UserRateThrottle]
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -333,9 +335,10 @@ class TaskViewSet(ModelViewSet):
 
 
 class CommentViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, mixins.UpdateModelMixin, GenericViewSet):
-    permission_classes = [IsAuthenticated]
-    serializer_class = CommentSerializer
     queryset = Comment.objects.all()
+    serializer_class = CommentSerializer
+    permission_classes = [IsAuthenticated]
+    throttle_classes = [UserRateThrottle]
 
     @extend_schema(
         request=CommentSerializer,
@@ -359,8 +362,9 @@ class CommentViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, mixins.Upda
 
 
 class TaskTimeLogViewSet(mixins.CreateModelMixin, GenericViewSet):
-    permission_classes = [IsAuthenticated]
     serializer_class = TimeLogSerializer
+    permission_classes = [IsAuthenticated]
+    throttle_classes = [UserRateThrottle]
 
     @extend_schema(
         responses={
@@ -447,6 +451,8 @@ class TaskTimeLogViewSet(mixins.CreateModelMixin, GenericViewSet):
 
 class ElasticSearchViewSet(GenericViewSet):
     permission_classes = [IsAuthenticated]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "elasticsearch"
 
     @extend_schema(
         parameters=[
