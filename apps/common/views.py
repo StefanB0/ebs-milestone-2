@@ -11,6 +11,7 @@ class HealthView(GenericAPIView):
     authentication_classes = ()
     permission_classes = (AllowAny,)
     serializer_class = EmptySerializer
+    throttle_classes = []
 
     @staticmethod
     def get(request: Request) -> Response:
@@ -19,6 +20,7 @@ class HealthView(GenericAPIView):
 
 class ProtectedTestView(GenericAPIView):
     serializer_class = EmptySerializer
+    throttle_classes = []
 
     @staticmethod
     def get(request: Request) -> Response:
