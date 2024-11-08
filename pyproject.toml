@@ -30,6 +30,7 @@ elasticsearch-dsl = "^8.15.4"
 django-allauth = {extras = ["socialaccount"], version = "^65.1.0"}
 requests = "^2.32.3"
 pillow = "^11.0.0"
+minio = "^7.2.10"
 
 
 [tool.poetry.group.dev.dependencies]

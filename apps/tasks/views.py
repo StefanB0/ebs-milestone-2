@@ -6,11 +6,10 @@ from drf_spectacular.openapi import OpenApiExample, OpenApiTypes
 from drf_spectacular.utils import extend_schema, OpenApiResponse, inline_serializer, OpenApiParameter
 from elasticsearch_dsl.query import Q
 from rest_framework.pagination import LimitOffsetPagination
-from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.throttling import UserRateThrottle, ScopedRateThrottle
 
 from rest_framework.viewsets import ModelViewSet, GenericViewSet
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework import status, mixins, serializers
@@ -28,6 +27,7 @@ from apps.tasks.serializers import (
     TimeLogTopSerializer,
     TaskAttachmentSerializer,
     TaskElasticSearchSerializer,
+    TaskAttachmentUploadSerializer,
 )
 from apps.tasks.signals import task_comment, task_assigned, task_complete, task_undo
 
@@ -291,33 +291,6 @@ class TaskViewSet(ModelViewSet):
         serializer = TimeLogSerializer(queryset, many=True)
         return Response(serializer.data)
 
-    @extend_schema(
-        request={
-            "multipart/form-data": {"type": "object", "properties": {"image": {"type": "string", "format": "binary"}}}
-        },
-        responses={
-            201: OpenApiResponse(
-                OpenApiTypes.OBJECT, examples=[OpenApiExample(name="0", value={"attach_id": 0, "task_id": 0})]
-            )
-        },
-    )
-    @action(
-        detail=True,
-        methods=["POST"],
-        parser_classes=[MultiPartParser, FormParser],
-        serializer_class=TaskAttachmentSerializer,
-    )
-    def attachment(self, request, *args, **kwargs):
-        task = self.get_object()
-        request_data = request.data
-        request_data["task"] = task.id
-        serializer = TaskAttachmentSerializer(data=request_data)
-
-        serializer.is_valid(raise_exception=False)
-        instance = serializer.save()
-
-        return Response({"attach_id": instance.id, "task_id": task.id}, status=status.HTTP_201_CREATED)
-
     @extend_schema(responses={200: TaskAttachmentSerializer(many=True)})
     @action(detail=True, methods=["GET"], serializer_class=TaskAttachmentSerializer)
     def attachments(self, request, *args, **kwargs):
@@ -523,3 +496,57 @@ class ElasticSearchViewSet(GenericViewSet):
         search_results = [hit.to_dict() for hit in search_result]
 
         return Response(search_results)
+
+
+class MinIOViewSet(GenericViewSet):
+    permission_classes = [AllowAny]
+
+    @action(detail=False, methods=["POST"])
+    def webhook(self, request, *args, **kwargs):
+        event = request.data.get("EventName")
+        if not event == "s3:ObjectCreated:Put":
+            return Response({"error": "Wrong Request"}, status=status.HTTP_400_BAD_REQUEST)
+
+        key = request.data["Key"]
+        # event_time = request.data["Records"][0]["eventTime"]
+
+        file = key.split("/", 1)[1]
+
+        if not TaskAttachment.objects.filter(file=file).exists():
+            return Response({"error": "Attachment does not exist"}, status=status.HTTP_404_NOT_FOUND)
+
+        instance = TaskAttachment.objects.get(file=file)
+
+        instance.status = "uploaded"
+        instance.file_upload_url = ""
+
+        instance.save()
+
+        return Response()
+
+    @extend_schema(
+        responses={
+            201: OpenApiResponse(
+                OpenApiTypes.OBJECT, examples=[OpenApiExample(name="0", value={"attach_id": 0, "task_id": 0})]
+            )
+        },
+    )
+    @action(
+        detail=False,
+        methods=["POST"],
+    )
+    def task_attachment(self, request, *args, **kwargs):
+        serializer = TaskAttachmentUploadSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        task_id = serializer.validated_data.get("task")
+        task = Task.objects.get(pk=task_id)
+        file_name = serializer.validated_data.get("file_name")
+
+        instance = TaskAttachment(file=file_name, task=task)
+
+        instance.save()
+
+        serializer = TaskAttachmentSerializer(instance)
+
+        return Response(serializer.data)

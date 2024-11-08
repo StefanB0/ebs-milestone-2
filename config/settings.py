@@ -49,8 +49,6 @@ SECRET_KEY = "django-insecure-cug=50j#8tv^tw!dvg@e!0snq^p+#ikhwv$6q6zslmt@pp$x0f
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env.bool("DEBUG", default=True)
 
-ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1", "6a04-185-181-231-25.ngrok-free.app"])
-
 # Application definition
 
 INSTALLED_APPS = [
@@ -117,6 +115,8 @@ TEMPLATES = [
     },
 ]
 
+ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1", "f2a8-185-181-231-25.ngrok-free.app"])
+
 WSGI_APPLICATION = "config.wsgi.application"
 
 CORS_ORIGIN_ALLOW_ALL = env.bool("CORS_ORIGIN_ALLOW_ALL", default=False)
@@ -127,7 +127,7 @@ CORS_ALLOWED_ORIGIN_REGEXES = [r".*://localhost:.*", r".*://127.0.0.1:.*"]
 
 CORS_ALLOWED_ORIGIN_REGEXES += list(map(lambda host: f".*://{host}:.*", ALLOWED_HOSTS))
 
-CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=["https://6a04-185-181-231-25.ngrok-free.app"])
+CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=["https://f2a8-185-181-231-25.ngrok-free.app"])
 
 CORS_ALLOW_HEADERS = (
     "accept",

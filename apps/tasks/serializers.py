@@ -1,5 +1,6 @@
 from rest_framework import serializers
 
+
 from apps.tasks.models import Task, Comment, TimeLog, TaskAttachment
 
 
@@ -41,12 +42,28 @@ class CommentSerializer(serializers.ModelSerializer):
         extra_kwargs = {"user": {"default": serializers.CurrentUserDefault(), "read_only": True}}
 
 
+class TaskAttachmentUploadSerializer(serializers.Serializer):
+    file_name = serializers.CharField(max_length=100)
+    task = serializers.IntegerField()
+
+    def validate(self, attrs):
+        if not Task.objects.filter(id=attrs["task"]).exists():
+            raise serializers.ValidationError({"task": "Not found"})
+
+        file_name = attrs.get("file_name")
+        valid_extensions = [".jpg", ".jpeg", ".png", ".pdf"]
+
+        if not any(file_name.lower().endswith(ext) for ext in valid_extensions):
+            raise serializers.ValidationError({"file_name": "File must be an image or PDF"})
+        return attrs
+
+
 class TaskAttachmentSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(source="pk", read_only=True)
 
     class Meta:
         model = TaskAttachment
-        fields = ["id", "file", "task"]
+        fields = ["id", "file", "task", "file_upload_url", "status"]
 
 
 class TaskElasticSearchSerializer(serializers.Serializer):

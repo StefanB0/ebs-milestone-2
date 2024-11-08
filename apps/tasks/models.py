@@ -1,10 +1,16 @@
+import hashlib
 import logging
 import math
+
+from datetime import timedelta, date, datetime
 
 from django.db import models
 from django.db.models import Sum
 from django.utils import timezone
 from django.contrib.auth import get_user_model
+from django_minio_backend import MinioBackend
+from django.conf import settings
+
 
 from apps.tasks.exceptions import TimeLogError
 
@@ -69,13 +75,41 @@ class Comment(models.Model):
 
 class TaskAttachment(models.Model):
     file = models.FileField(
-        verbose_name="Task Photo",
-        upload_to="task-attachments/%Y-%m-%d/",
+        verbose_name="Task Attachment",
+        upload_to="task-attachments/%Y-%m-%d/",  # This controls the upload path
     )
-    task = models.ForeignKey(Task, on_delete=models.CASCADE)
+    file_upload_url = models.CharField(max_length=1000)
+    task = models.ForeignKey("Task", on_delete=models.CASCADE)
+    status = models.CharField(default="pending")
 
-    def __str__(self) -> str:
-        return self.task.title + ": Attachment"
+    def save(self, *args, **kwargs):
+        if not self.pk:
+            client = MinioBackend().client
+            today = date.today()
+            file_path = f"task-attachments/{today.year}-{today.month}-{today.day}/{self.file.name}"
+
+            # MinioBackend().exists(file_path)
+            if TaskAttachment.objects.filter(file=file_path).exists():
+                hash_object = hashlib.md5(f"{self.file.name}{datetime.now().isoformat()}".encode())
+                hash_suffix = hash_object.hexdigest()[:8]
+                path, ext = file_path.rsplit(".", 1)
+                file_path = path + "_" + hash_suffix + "." + ext
+
+            self.file = file_path
+            self.file_upload_url = client.presigned_put_object(
+                bucket_name=settings.MINIO_MEDIA_FILES_BUCKET, object_name=file_path, expires=timedelta(hours=1)
+            )
+
+        super().save(*args, **kwargs)
+
+    # def get_put_url(self):
+    #     today = date.today()
+    #
+    #     return MinioBackend().client.presigned_put_object(
+    #         bucket_name=settings.MINIO_MEDIA_FILES_BUCKET,
+    #         object_name=f"task-attachments/{today.year}-%{today.month}-{today.day}/{self.file.name}",
+    #         expires=timedelta(hours=1),
+    #     )
 
 
 class TimeLog(models.Model):
