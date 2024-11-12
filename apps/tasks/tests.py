@@ -414,12 +414,12 @@ class TestTimeLog(APITestCase):
         self.tasks = TaskSerializer(Task.objects.all(), many=True).data
         self.time_logs = TimeLogSerializer(TimeLog.objects.all(), many=True).data
 
-        for t in TimeLog.objects.all():
-            if t.start_time < timezone.now() - timezone.timedelta(days=30):
-                difference = timezone.now() - t.start_time - timezone.timedelta(days=1)
+        for instance in TimeLog.objects.all():
+            if instance.start_time < timezone.now() - timezone.timedelta(days=30):
+                difference = timezone.now() - instance.start_time - timezone.timedelta(days=1)
                 offset = timezone.timedelta(days=difference.days)
-                t.start_time = t.start_time + offset
-                t.save()
+                instance.start_time = instance.start_time + offset
+                instance.save()
 
     def test_start_timer(self):
         initial_count = TimeLog.objects.count()

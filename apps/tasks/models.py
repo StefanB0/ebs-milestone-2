@@ -48,7 +48,9 @@ class Task(models.Model):
 
     def start_timer(self):
         try:
-            TimeLog.objects.create(task=self, start_time=timezone.now())
+            timelog = TimeLog(task=self, start_time=timezone.now())
+            timelog.full_clean()
+            timelog.save()
         except TimeLogError as e:
             error = str(e)
             return error.split(".")[0]
@@ -85,11 +87,11 @@ class Attachment(models.Model):
         verbose_name="Task Attachment",
         upload_to="task-attachments/%Y-%m-%d/",  # This controls the upload path
     )
-    file_upload_url = models.CharField(max_length=1000)
+    file_upload_url = models.URLField(blank=True, max_length=1000)
     task = models.ForeignKey("Task", on_delete=models.CASCADE)
     status = models.CharField(max_length=1, choices=STATUS_CHOICES, default=PENDING)
 
-    def save(self, *args, **kwargs):
+    def clean(self):
         if not self.pk:
             client = MinioBackend().client
             today = date.today()
@@ -105,8 +107,6 @@ class Attachment(models.Model):
             self.file_upload_url = client.presigned_put_object(
                 bucket_name=settings.MINIO_MEDIA_FILES_BUCKET, object_name=file_path, expires=timedelta(hours=1)
             )
-
-        super().save(*args, **kwargs)
 
 
 class TimeLog(models.Model):
@@ -126,7 +126,7 @@ class TimeLog(models.Model):
             + str(self.duration)
         )
 
-    def save(self, *args, **kwargs):
+    def clean(self):
         for time_log in TimeLog.objects.filter(task=self.task).exclude(id=self.id):
             if time_log.duration is None:
                 raise TimeLogError(
@@ -144,8 +144,6 @@ class TimeLog(models.Model):
                     + f"Start={time_log.start_time.time()}/{self.start_time.time()},"
                     + f"Duration={time_log.duration}/{self.duration}"
                 )
-
-        super().save(*args, **kwargs)
 
     def stop(self):
         if self.duration is not None:

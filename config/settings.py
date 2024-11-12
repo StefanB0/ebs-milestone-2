@@ -66,9 +66,9 @@ INSTALLED_APPS = [
     "allauth.socialaccount.providers.github",
     "django_celery_results",
     "django_celery_beat",
+    "corsheaders",
     "rest_framework",
     "rest_framework.authtoken",
-    "corsheaders",
     "drf_spectacular",
     # Local apps
     "apps.common",

@@ -37,7 +37,7 @@ class CommentAdmin(admin.ModelAdmin):
 
 
 @admin.register(Attachment)
-class TaskAttachmentAdmin(admin.ModelAdmin):
+class AttachmentAdmin(admin.ModelAdmin):
     list_display = ["id", "task"]
     list_display_links = ["task"]
     search_fields = ["task__title"]

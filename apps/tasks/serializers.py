@@ -82,6 +82,10 @@ class TaskElasticSearchSerializer(serializers.Serializer):
 class TimeLogSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(source="pk", read_only=True)
 
+    def create(self, validated_data):
+        TimeLog(**validated_data).full_clean()
+        return super().create(validated_data)
+
     class Meta:
         model = TimeLog
         fields = ("id", "task", "start_time", "duration")
