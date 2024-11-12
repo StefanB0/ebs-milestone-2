@@ -115,7 +115,7 @@ TEMPLATES = [
     },
 ]
 
-ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1", "f2a8-185-181-231-25.ngrok-free.app"])
+ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
 
 WSGI_APPLICATION = "config.wsgi.application"
 
@@ -127,7 +127,7 @@ CORS_ALLOWED_ORIGIN_REGEXES = [r".*://localhost:.*", r".*://127.0.0.1:.*"]
 
 CORS_ALLOWED_ORIGIN_REGEXES += list(map(lambda host: f".*://{host}:.*", ALLOWED_HOSTS))
 
-CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=["https://f2a8-185-181-231-25.ngrok-free.app"])
+CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])
 
 CORS_ALLOW_HEADERS = (
     "accept",
@@ -331,8 +331,12 @@ CELERY_TASK_SERIALIZER = "json"
 
 CELERY_BEAT_SCHEDULE = {
     "weekly_task_report": {
-        "task": "your_app.tasks.send_weekly_report",
+        "task": "apps.tasks.tasks.send_weekly_report",
         "schedule": crontab(hour=7, minute=30, day_of_week=1),
+    },
+    "daily_prune_attachments": {
+        "task": "apps.tasks.tasks.prune_attachments",
+        "schedule": crontab(hour=6, minute=0),
     },
 }
 

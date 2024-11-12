@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 
-from apps.tasks.models import Task, Comment, TimeLog, TaskAttachment
+from apps.tasks.models import Task, Comment, TimeLog, Attachment
 
 
 class TaskSerializer(serializers.ModelSerializer):
@@ -42,7 +42,7 @@ class CommentSerializer(serializers.ModelSerializer):
         extra_kwargs = {"user": {"default": serializers.CurrentUserDefault(), "read_only": True}}
 
 
-class TaskAttachmentUploadSerializer(serializers.Serializer):
+class AttachmentUploadSerializer(serializers.Serializer):
     file_name = serializers.CharField(max_length=100)
     task = serializers.IntegerField()
 
@@ -58,12 +58,18 @@ class TaskAttachmentUploadSerializer(serializers.Serializer):
         return attrs
 
 
-class TaskAttachmentSerializer(serializers.ModelSerializer):
+class AttachmentSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(source="pk", read_only=True)
 
     class Meta:
-        model = TaskAttachment
+        model = Attachment
         fields = ["id", "file", "task", "file_upload_url", "status"]
+
+
+class AttachmentEventSerializer(serializers.Serializer):
+    EventName = serializers.CharField()
+    Key = serializers.CharField()
+    Records = serializers.ListField(child=serializers.DictField(child=serializers.CharField()))
 
 
 class TaskElasticSearchSerializer(serializers.Serializer):

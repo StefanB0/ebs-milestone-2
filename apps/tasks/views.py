@@ -16,7 +16,7 @@ from rest_framework import status, mixins, serializers
 
 from apps.tasks.documents import TaskDocument
 from apps.tasks.exceptions import TimeLogError
-from apps.tasks.models import Task, Comment, TimeLog, TaskAttachment
+from apps.tasks.models import Task, Comment, TimeLog, Attachment
 from apps.tasks.serializers import (
     TaskSerializer,
     TaskPreviewSerializer,
@@ -25,9 +25,10 @@ from apps.tasks.serializers import (
     CommentSerializer,
     TimeLogSerializer,
     TimeLogTopSerializer,
-    TaskAttachmentSerializer,
+    AttachmentSerializer,
     TaskElasticSearchSerializer,
-    TaskAttachmentUploadSerializer,
+    AttachmentUploadSerializer,
+    AttachmentEventSerializer,
 )
 from apps.tasks.signals import task_comment, task_assigned, task_complete, task_undo
 
@@ -76,7 +77,7 @@ class TaskViewSet(ModelViewSet):
 
     #
     @extend_schema(responses={200: TaskPreviewSerializer(many=True)})
-    @action(detail=False, methods=["GET"], url_path="users/(?P<pk>[^/.]+)", url_name="user")
+    @action(detail=False, methods=["GET"], url_path="user/(?P<pk>[^/.]+)", url_name="user")
     def user_tasks(self, request, *args, **kwargs):
         user_id = self.kwargs.get("pk")
         if not User.objects.filter(id=user_id).exists():
@@ -291,21 +292,6 @@ class TaskViewSet(ModelViewSet):
         serializer = TimeLogSerializer(queryset, many=True)
         return Response(serializer.data)
 
-    @extend_schema(responses={200: TaskAttachmentSerializer(many=True)})
-    @action(detail=True, methods=["GET"], serializer_class=TaskAttachmentSerializer)
-    def attachments(self, request, *args, **kwargs):
-        if not Task.objects.filter(id=kwargs["pk"]).exists():
-            return Response({"error": "Task does not exist"}, status=status.HTTP_404_NOT_FOUND)
-
-        queryset = TaskAttachment.objects.filter(task=kwargs["pk"])
-        page = self.paginate_queryset(queryset)
-        if page is not None:
-            serializer = self.get_serializer(page, many=True)
-            return self.get_paginated_response(serializer.data)
-
-        serializer = self.get_serializer(queryset, many=True)
-        return Response(serializer.data)
-
 
 class CommentViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, mixins.UpdateModelMixin, GenericViewSet):
     queryset = Comment.objects.all()
@@ -498,55 +484,84 @@ class ElasticSearchViewSet(GenericViewSet):
         return Response(search_results)
 
 
-class MinIOViewSet(GenericViewSet):
-    permission_classes = [AllowAny]
-
-    @action(detail=False, methods=["POST"])
-    def webhook(self, request, *args, **kwargs):
-        event = request.data.get("EventName")
-        if not event == "s3:ObjectCreated:Put":
-            return Response({"error": "Wrong Request"}, status=status.HTTP_400_BAD_REQUEST)
-
-        key = request.data["Key"]
-        # event_time = request.data["Records"][0]["eventTime"]
-
-        file = key.split("/", 1)[1]
-
-        if not TaskAttachment.objects.filter(file=file).exists():
-            return Response({"error": "Attachment does not exist"}, status=status.HTTP_404_NOT_FOUND)
-
-        instance = TaskAttachment.objects.get(file=file)
-
-        instance.status = "uploaded"
-        instance.file_upload_url = ""
-
-        instance.save()
-
-        return Response()
+class AttachmentViewSet(
+    mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.CreateModelMixin, mixins.DestroyModelMixin, GenericViewSet
+):
+    queryset = Attachment.objects.all()
+    serializer_class = AttachmentSerializer
+    permission_classes = [IsAuthenticated]
+    throttle_classes = [UserRateThrottle]
 
     @extend_schema(
-        responses={
-            201: OpenApiResponse(
-                OpenApiTypes.OBJECT, examples=[OpenApiExample(name="0", value={"attach_id": 0, "task_id": 0})]
-            )
-        },
+        request=AttachmentUploadSerializer,
     )
-    @action(
-        detail=False,
-        methods=["POST"],
-    )
-    def task_attachment(self, request, *args, **kwargs):
-        serializer = TaskAttachmentUploadSerializer(data=request.data)
+    def create(self, request, *args, **kwargs):
+        serializer = AttachmentUploadSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         task_id = serializer.validated_data.get("task")
         task = Task.objects.get(pk=task_id)
         file_name = serializer.validated_data.get("file_name")
 
-        instance = TaskAttachment(file=file_name, task=task)
+        instance = Attachment(file=file_name, task=task)
 
         instance.save()
 
-        serializer = TaskAttachmentSerializer(instance)
+        serializer = AttachmentSerializer(instance)
 
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    @extend_schema(responses={200: AttachmentSerializer(many=True)})
+    @action(detail=False, methods=["GET"], url_path="task/(?P<pk>[^/.]+)", url_name="task")
+    def task(self, request, *args, **kwargs):
+        task_id = self.kwargs.get("pk")
+        if not Task.objects.filter(id=task_id).exists():
+            return Response({"error": "Task not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        task = Task.objects.get(pk=task_id)
+        queryset = Attachment.objects.filter(task=task)
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
+
+    @extend_schema(
+        request=AttachmentEventSerializer,
+        responses={200: serializers.Serializer},
+        examples=[
+            OpenApiExample(
+                "MinIO Event Example",
+                value={
+                    "EventName": "s3:ObjectCreated:Put",
+                    "Key": "django-media-files-bucket/task-attachments/2020-01-01/attachments.jpg",
+                    "Records": [
+                        {
+                            "eventTime": "2020-01-01T00:00:00.000Z",
+                        }
+                    ],
+                },
+                request_only=True,
+            )
+        ],
+    )
+    @action(detail=False, methods=["POST"], permission_classes=[AllowAny], throttle_classes=[])
+    def webhook(self, request, *args, **kwargs):
+        event = request.data.get("EventName")
+        if not event == "s3:ObjectCreated:Put":
+            return Response({"error": "Wrong Request"}, status=status.HTTP_400_BAD_REQUEST)
+
+        key = request.data["Key"]
+        path = key.split("/", 1)[1]
+        if not Attachment.objects.filter(file=path).exists():
+            return Response({"error": "Attachment does not exist"}, status=status.HTTP_404_NOT_FOUND)
+
+        instance = Attachment.objects.get(file=path)
+
+        instance.status = Attachment.READY
+        instance.file_upload_url = ""
+        instance.save()
+
+        return Response()

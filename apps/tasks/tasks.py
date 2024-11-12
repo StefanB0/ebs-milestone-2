@@ -5,11 +5,22 @@ from django.contrib.auth import get_user_model
 from django.db.models import Sum, F
 from django.template.loader import render_to_string
 from django.core.mail import send_mail
+from django_minio_backend import MinioBackend
 
-from apps.tasks.models import Task
+from apps.tasks.models import Task, Attachment
 from apps.tasks.serializers import TaskPreviewSerializer
 
 User = get_user_model()
+
+
+@shared_task
+def prune_attachments():
+    queryset = Attachment.objects.filter(status=Attachment.PENDING)
+    for obj in queryset:
+        if not MinioBackend().exists(obj.file.name):
+            obj.delete()
+        else:
+            obj.status = Attachment.READY
 
 
 @shared_task(bind=True, max_retries=5, default_retry_delay=30)

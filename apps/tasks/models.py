@@ -73,14 +73,21 @@ class Comment(models.Model):
         return self.task.title + ": " + self.user.username + ": " + self.body
 
 
-class TaskAttachment(models.Model):
+class Attachment(models.Model):
+    PENDING = "P"
+    READY = "R"
+    STATUS_CHOICES = {
+        PENDING: "pending",
+        READY: "ready",
+    }
+
     file = models.FileField(
         verbose_name="Task Attachment",
         upload_to="task-attachments/%Y-%m-%d/",  # This controls the upload path
     )
     file_upload_url = models.CharField(max_length=1000)
     task = models.ForeignKey("Task", on_delete=models.CASCADE)
-    status = models.CharField(default="pending")
+    status = models.CharField(max_length=1, choices=STATUS_CHOICES, default=PENDING)
 
     def save(self, *args, **kwargs):
         if not self.pk:
@@ -88,8 +95,7 @@ class TaskAttachment(models.Model):
             today = date.today()
             file_path = f"task-attachments/{today.year}-{today.month}-{today.day}/{self.file.name}"
 
-            # MinioBackend().exists(file_path)
-            if TaskAttachment.objects.filter(file=file_path).exists():
+            if Attachment.objects.filter(file=file_path).exists() or MinioBackend().exists(file_path):
                 hash_object = hashlib.md5(f"{self.file.name}{datetime.now().isoformat()}".encode())
                 hash_suffix = hash_object.hexdigest()[:8]
                 path, ext = file_path.rsplit(".", 1)
@@ -101,15 +107,6 @@ class TaskAttachment(models.Model):
             )
 
         super().save(*args, **kwargs)
-
-    # def get_put_url(self):
-    #     today = date.today()
-    #
-    #     return MinioBackend().client.presigned_put_object(
-    #         bucket_name=settings.MINIO_MEDIA_FILES_BUCKET,
-    #         object_name=f"task-attachments/{today.year}-%{today.month}-{today.day}/{self.file.name}",
-    #         expires=timedelta(hours=1),
-    #     )
 
 
 class TimeLog(models.Model):

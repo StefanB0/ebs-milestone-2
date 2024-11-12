@@ -8,7 +8,7 @@ x-milestone-django-app: &x-milestone-django-app
       - OAUTH_CLIENT_ID_GITHUB=${OAUTH_CLIENT_ID_GITHUB}
       - OAUTH_CLIENT_SECRET_GITHUB=${OAUTH_CLIENT_SECRET_GITHUB}
       - DATABASE_URL=postgresql://postgres:postgres@postgres-db:5432/postgres
-      - CACHE_URL=redis://redis-db:6379/1"
+      - CACHE_URL=redis://redis-db:6379/1
       - MESSAGE_BROKER_URL=pyamqp://admin:admin@rabbitmq-broker
       - EMAIL_HOST=mailhog-mock
       - S3_HOST=minio
@@ -131,6 +131,8 @@ services:
         mc alias set s3local http://minio:9000 admin admin-admin
         mc ls s3local/django-media-files-bucket || (mc mb s3local/django-media-files-bucket && mc anonymous set public s3local/django-media-files-bucket)
         mc ls s3local/django-static-files-bucket || (mc mb s3local/django-static-files-bucket && mc anonymous set public s3local/django-static-files-bucket)
+        mc admin config set s3local/ notify_webhook:django endpoint=http://localhost/attachments/webhook/
+        mc event add s3local/django-media-files-bucket arn:minio:sqs::django:webhook --event put
     depends_on:
       minio:
         condition: service_healthy

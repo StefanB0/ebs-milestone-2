@@ -4,7 +4,6 @@ from unittest import skipUnless
 
 from django.contrib.auth import get_user_model
 from django.core import mail
-from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 from django.utils import timezone
 from django.conf import settings
@@ -13,10 +12,10 @@ from rest_framework import status
 from rest_framework.test import APIClient, APITestCase
 from rest_framework.throttling import ScopedRateThrottle, UserRateThrottle
 
-from apps.tasks.views import TaskViewSet, CommentViewSet, TaskTimeLogViewSet, ElasticSearchViewSet
+from apps.tasks.views import TaskViewSet, CommentViewSet, TaskTimeLogViewSet, ElasticSearchViewSet, AttachmentViewSet
 from config.celery import app as celery_app
 
-from apps.tasks.models import Task, Comment, TimeLog, TaskAttachment
+from apps.tasks.models import Task, Comment, TimeLog, Attachment
 from apps.tasks.serializers import TaskSerializer, CommentSerializer, TimeLogSerializer
 
 User = get_user_model()
@@ -397,7 +396,7 @@ class TestMail(APITestCase):
 class TestTimeLog(APITestCase):
     fixtures = ["fixtures/users", "fixtures/tasks", "fixtures/timelogs"]
 
-    def setUp(self) -> None:
+    def setUp(self):
         logging.disable(logging.CRITICAL)
         celery_app.conf.update(
             task_always_eager=True,
@@ -415,7 +414,14 @@ class TestTimeLog(APITestCase):
         self.tasks = TaskSerializer(Task.objects.all(), many=True).data
         self.time_logs = TimeLogSerializer(TimeLog.objects.all(), many=True).data
 
-    def test_start_timer(self) -> None:
+        for t in TimeLog.objects.all():
+            if t.start_time < timezone.now() - timezone.timedelta(days=30):
+                difference = timezone.now() - t.start_time - timezone.timedelta(days=1)
+                offset = timezone.timedelta(days=difference.days)
+                t.start_time = t.start_time + offset
+                t.save()
+
+    def test_start_timer(self):
         initial_count = TimeLog.objects.count()
         initial_task_count = Task.objects.get(id=1).timelog_set.count()
 
@@ -427,7 +433,7 @@ class TestTimeLog(APITestCase):
         self.assertEqual(Task.objects.get(id=1).timelog_set.count(), initial_task_count + 1)
 
     # Start timer for already started task
-    def test_start_timer_repeat(self) -> None:
+    def test_start_timer_repeat(self):
         self.client.patch(reverse("tasks-start-timer", args=[1]))
 
         initial_count = TimeLog.objects.count()
@@ -442,17 +448,17 @@ class TestTimeLog(APITestCase):
         self.assertEqual(Task.objects.get(id=1).timelog_set.count(), initial_task_count)
 
     # Start timer for task that does not belong to user
-    def test_start_timer_foreign(self) -> None:
+    def test_start_timer_foreign(self):
         self.client.force_authenticate(user=self.user2)
         response = self.client.patch(reverse("tasks-start-timer", args=[1]))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     # Task does not exist
-    def test_start_timer_no_task(self) -> None:
+    def test_start_timer_no_task(self):
         response = self.client.patch(reverse("tasks-start-timer", args=[9999]))
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
-    def test_stop_timer(self) -> None:
+    def test_stop_timer(self):
         task = Task.objects.get(id=5)
         TimeLog.objects.create(task=task, start_time=timezone.now() - timezone.timedelta(hours=1))
 
@@ -465,7 +471,7 @@ class TestTimeLog(APITestCase):
         self.assertIsNotNone(task.timelog_set.first().duration)
 
     # Stop timer for already stopped task
-    def test_stop_timer_repeat(self) -> None:
+    def test_stop_timer_repeat(self):
         task = Task.objects.get(id=5)
         TimeLog.objects.create(task=task, start_time=timezone.now() - timezone.timedelta(hours=1))
 
@@ -474,17 +480,17 @@ class TestTimeLog(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     # Stop timer for task that does not belong to user
-    def test_stop_timer_foreign(self) -> None:
+    def test_stop_timer_foreign(self):
         self.client.force_authenticate(user=self.user2)
         response = self.client.patch(reverse("tasks-stop-timer", args=[1]))
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     # Task does not exist
-    def test_stop_timer_no_task(self) -> None:
+    def test_stop_timer_no_task(self):
         response = self.client.patch(reverse("tasks-stop-timer", args=[9999]))
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
-    def test_create_time_log(self) -> None:
+    def test_create_time_log(self):
         task = Task.objects.get(id=1)
 
         response = self.client.post(
@@ -502,7 +508,7 @@ class TestTimeLog(APITestCase):
         self.assertIsNotNone(TimeLog.objects.get(id=response.data["time_log_id"]).duration)
 
     # Create timelog for task that does not belong to user
-    def test_create_time_log_foreign(self) -> None:
+    def test_create_time_log_foreign(self):
         task = Task.objects.get(id=1)
         self.client.force_authenticate(user=self.user2)
 
@@ -518,7 +524,7 @@ class TestTimeLog(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     # Create timelog when another timelog is running
-    def test_create_time_log_repeat(self) -> None:
+    def test_create_time_log_repeat(self):
         task = Task.objects.get(id=1)
         request_data = {
             "task": task.id,
@@ -530,7 +536,7 @@ class TestTimeLog(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     # Create timelog with overlapping time
-    def test_create_time_log_overlap(self) -> None:
+    def test_create_time_log_overlap(self):
         task = Task.objects.get(id=1)
         response = self.client.post(
             reverse("timelogs-list"),
@@ -555,7 +561,7 @@ class TestTimeLog(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     # Task does not exist
-    def test_create_time_log_no_task(self) -> None:
+    def test_create_time_log_no_task(self):
         response = self.client.post(
             reverse("timelogs-list"),
             {
@@ -566,7 +572,7 @@ class TestTimeLog(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
-    def test_get_time_logs(self) -> None:
+    def test_get_time_logs(self):
         task = Task.objects.get(id=1)
 
         response = self.client.get(reverse("tasks-timer-logs", args=[task.id]))
@@ -574,14 +580,14 @@ class TestTimeLog(APITestCase):
         self.assertEqual(len(response.data["results"]), task.timelog_set.count())
 
     # Get timelogs for task that does not have any timelogs
-    def test_get_time_logs_no_logs(self) -> None:
+    def test_get_time_logs_no_logs(self):
         task = Task.objects.get(id=8)
         response = self.client.get(reverse("tasks-timer-logs", args=[task.id]))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data["results"]), 0)
 
     # Get timelogs for task that does not belong to user
-    def test_get_time_logs_foreign(self) -> None:
+    def test_get_time_logs_foreign(self):
         task = Task.objects.get(id=1)
         self.client.force_authenticate(user=self.user2)
         response = self.client.get(reverse("tasks-timer-logs", args=[task.id]))
@@ -589,11 +595,13 @@ class TestTimeLog(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     # Task not found
-    def test_get_time_logs_no_task(self) -> None:
+    def test_get_time_logs_no_task(self):
         response = self.client.get(reverse("tasks-timer-logs", args=[9999]))
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
-    def test_get_time_logs_month(self) -> None:
+    def test_get_time_logs_month(self):
+        self.client.force_authenticate(user=self.user)
+
         response = self.client.get(reverse("timelogs-last-month"))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertContains(response, "month_time_spent")
@@ -601,7 +609,7 @@ class TestTimeLog(APITestCase):
             response.data["month_time_spent"].total_seconds(), timezone.timedelta(hours=2, minutes=30).total_seconds()
         )
 
-    def test_get_top_logs(self) -> None:
+    def test_get_top_logs(self):
         response = self.client.get(reverse("timelogs-top"), {"limit": 2})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 2)
@@ -612,13 +620,13 @@ class TestTimeLog(APITestCase):
         self.assertEqual(top_duration.total_seconds(), timezone.timedelta(minutes=45).total_seconds())
 
     # Get default limit of 20, but there are only 6 logs, 1 of them with no duration
-    def test_get_top_logs_deficit(self) -> None:
+    def test_get_top_logs_deficit(self):
         response = self.client.get(reverse("timelogs-top"))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 5)
+        self.assertEqual(len(response.data), 5, response.data)
 
     # Get top logs for user that does not have any logs
-    def test_get_top_logs_no_logs(self) -> None:
+    def test_get_top_logs_no_logs(self):
         self.client.force_authenticate(user=self.user2)
 
         response = self.client.get(reverse("timelogs-top"))
@@ -626,7 +634,7 @@ class TestTimeLog(APITestCase):
         self.assertEqual(len(response.data), 0, f"{response.data}")
 
     # Test caching
-    def test_get_top_logs_cache(self) -> None:
+    def test_get_top_logs_cache(self):
         # First request
         response1 = self.client.get(reverse("timelogs-top"))
         self.assertEqual(response1.status_code, status.HTTP_200_OK)
@@ -647,67 +655,137 @@ class TestTimeLog(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
 
 
-class TestMinIO(APITestCase):
+class TestAttachment(APITestCase):
     fixtures = ["fixtures/users", "fixtures/tasks"]
 
     def setUp(self) -> None:
         logging.disable(logging.CRITICAL)
-        TaskViewSet.throttle_classes = []
+        AttachmentViewSet.throttle_classes = []
 
-        self.image_name = "Duck_1"
-        with open("static/mock/" + self.image_name + ".png", "rb") as image_file:
-            image_content = image_file.read()
-        self.mock_image = SimpleUploadedFile(self.image_name + ".png", image_content, content_type="image/png")
+        self.file_name = "test-file.jpg"
+        self.file_name_no_extension = self.file_name.split(".")[0]
 
         self.client = APIClient()
         self.user = User.objects.get(pk=1)
         self.client.force_authenticate(user=self.user)
 
     def tearDown(self) -> None:
-        queryset = TaskAttachment.objects.all()
+        queryset = Attachment.objects.all()
         queryset.delete()
 
     def test_task_attachment_creation(self):
         task = Task.objects.first()
-        instance = TaskAttachment.objects.create(task=task, image=self.mock_image)
+        instance = Attachment.objects.create(task=task, file=self.file_name)
 
         self.assertEqual(instance.task, task)
-        self.assertTrue(self.image_name in instance.image.name, str(instance.image.name))
-
-        instance.delete()
+        self.assertTrue(self.file_name_no_extension in instance.file.name, str(instance.file.name))
 
     def test_upload_attachment(self):
         task = Task.objects.first()
-        response = self.client.post(
-            reverse("tasks-attachment", args=[task.id]), {"image": self.mock_image}, format="multipart"
-        )
+        response = self.client.post(reverse("attachments-list"), {"file_name": self.file_name, "task": task.id})
 
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response)
-        self.assertIn("attach_id", response.data)
-        self.assertIn("task_id", response.data)
-        self.assertEqual(task.id, response.data["task_id"], response.data)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertContains(response, "id", status_code=status.HTTP_201_CREATED)
+        self.assertContains(response, "file", status_code=status.HTTP_201_CREATED)
+        self.assertEqual(response.data["task"], task.id, response.data)
+        self.assertContains(response, "file_upload_url", status_code=status.HTTP_201_CREATED)
+        self.assertEqual(response.data["status"], Attachment.PENDING, response.data)
+
+    def test_upload_attachment_repeat(self):
+        task = Task.objects.first()
+        response = self.client.post(reverse("attachments-list"), {"file_name": self.file_name, "task": task.id})
+        self.assertIn(self.file_name, response.data["file"])
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        response = self.client.post(reverse("attachments-list"), {"file_name": self.file_name, "task": task.id})
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertNotIn(self.file_name, response.data["file"])
+        self.assertIn(self.file_name_no_extension, response.data["file"])
+
+    def test_confirm_webhook(self):
+        task = Task.objects.first()
+        response = self.client.post(reverse("attachments-list"), {"file_name": self.file_name, "task": task.id})
+
+        instance = Attachment.objects.get(id=response.data["id"])
+        self.assertEqual(instance.status, Attachment.PENDING)
+        self.assertNotEqual(instance.file_upload_url, "")
+
+        today = datetime.date.today()
+        webhook_data = {
+            "EventName": "s3:ObjectCreated:Put",
+            "Key": f"django-media-files-bucket/task-attachments/{today.year}-{today.month}-{today.day}/{self.file_name}",
+            "Records": [
+                {
+                    "eventTime": "2020-01-01T00:00:00.000Z",
+                }
+            ],
+        }
+
+        response = self.client.post(reverse("attachments-webhook"), webhook_data)
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+
+        instance.refresh_from_db()
+
+        self.assertEqual(instance.status, Attachment.READY)
+        self.assertEqual(instance.file_upload_url, "")
 
     def test_get_attachments(self):
-        task = Task.objects.first()
-        TaskAttachment.objects.create(task=task, image=self.mock_image)
-
-        response = self.client.get(reverse("tasks-attachments", args=[task.id]))
-
+        response = self.client.get(reverse("attachments-list"))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertGreaterEqual(len(response.data["results"]), 1)
-        self.assertIn(self.image_name, response.data["results"][0]["image"])
+        self.assertEqual(len(response.data["results"]), 0)
+
+        task = Task.objects.first()
+        for i in range(0, 10):
+            self.client.post(reverse("attachments-list"), {"file_name": self.file_name, "task": task.id})
+
+        response = self.client.get(reverse("attachments-list"))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["results"]), 10)
+
+    def test_get_attachment(self):
+        task = Task.objects.first()
+        response = self.client.post(reverse("attachments-list"), {"file_name": self.file_name, "task": task.id})
+
+        attachment_id = response.data["id"]
+
+        response = self.client.get(reverse("attachments-detail", kwargs={"pk": attachment_id}))
+        self.assertContains(response, "file")
+        self.assertEqual(response.data["task"], task.id, response.data)
+        self.assertContains(response, "file_upload_url")
+        self.assertEqual(response.data["status"], Attachment.PENDING, response.data)
+
+    def test_get_attachment_no_attachment(self):
+        response = self.client.get(reverse("attachments-detail", kwargs={"pk": 9999}))
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_get_task_attachment(self):
+        task = Task.objects.first()
+        self.client.post(reverse("attachments-list"), {"file_name": self.file_name, "task": task.id})
+
+        response = self.client.get(reverse("attachments-task", kwargs={"pk": task.id}))
+        self.assertContains(response, "file")
+        self.assertEqual(response.data["results"][0]["task"], task.id, response.data)
 
     def test_get_attachment_task_not_exist(self):
-        response = self.client.get(reverse("tasks-attachments", args=[999]))
+        response = self.client.get(reverse("attachments-task", kwargs={"pk": 9999}))
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
-        self.assertEqual(response.data["error"], "Task does not exist")
+        self.assertEqual(response.data["error"], "Task not found")
 
-    def test_get_missing_attachment(self):
-        task = Task.objects.last()
+    def test_delete_attachment(self):
+        task = Task.objects.first()
+        response = self.client.post(reverse("attachments-list"), {"file_name": self.file_name, "task": task.id})
 
-        response = self.client.get(reverse("tasks-attachments", args=[task.id]))
-        self.assertEqual(len(response.data["results"]), 0)
+        response = self.client.delete(reverse("attachments-detail", kwargs={"pk": response.data["id"]}))
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+
+    def test_throttle(self):
+        AttachmentViewSet.throttle_classes = [UserRateThrottle]
+        for i in range(0, 10):
+            self.client.get(reverse("attachments-list"))
+
+        response = self.client.get(reverse("attachments-list"))
+        self.assertEqual(response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
 
 
 class TestElasticSearch(APITestCase):

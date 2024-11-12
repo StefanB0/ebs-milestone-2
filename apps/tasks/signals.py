@@ -1,6 +1,9 @@
 from django.contrib.auth import get_user_model
+from django.db.models.signals import post_delete
 from django.dispatch import Signal, receiver
+from django_minio_backend import MinioBackend
 
+from apps.tasks.models import Attachment
 from apps.tasks.tasks import c_send_mail
 
 User = get_user_model()
@@ -55,3 +58,8 @@ def task_comment_handler(sender, **kwargs):
     subject = "Task comment"
     message = f"Task [{task.title}] has received a comment:\n\t{comment.body}"
     c_send_mail.delay(recipient, subject, message)
+
+
+@receiver(post_delete, sender=Attachment)
+def delete_task_attachment_file(sender, instance, **kwargs):
+    MinioBackend().delete(instance.file.name)
