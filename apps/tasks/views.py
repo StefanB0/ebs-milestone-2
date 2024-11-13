@@ -5,9 +5,10 @@ from django.contrib.auth import get_user_model
 from drf_spectacular.openapi import OpenApiExample, OpenApiTypes
 from drf_spectacular.utils import extend_schema, OpenApiResponse, inline_serializer, OpenApiParameter
 from elasticsearch_dsl.query import Q
+from django_filters import rest_framework as filters
+
 from rest_framework.pagination import LimitOffsetPagination
 from rest_framework.throttling import UserRateThrottle, ScopedRateThrottle
-
 from rest_framework.viewsets import ModelViewSet, GenericViewSet
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.decorators import action
@@ -16,6 +17,7 @@ from rest_framework import status, mixins, serializers
 
 from apps.tasks.documents import TaskDocument
 from apps.tasks.exceptions import TimeLogError
+from apps.tasks.filters import AttachmentTaskFilter
 from apps.tasks.models import Task, Comment, TimeLog, Attachment
 from apps.tasks.serializers import (
     TaskSerializer,
@@ -348,12 +350,11 @@ class TaskTimeLogViewSet(mixins.CreateModelMixin, GenericViewSet):
             return Response({"error": "Task does not exist"}, status=status.HTTP_400_BAD_REQUEST)
 
         log_user = Task.objects.get(id=request.data["task"]).user
+        if log_user != request.user:
+            return Response({"message": "You are not authorized to log time for this task"}, status=403)
 
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-
-        if log_user != request.user:
-            return Response({"message": "You are not authorized to log time for this task"}, status=403)
 
         try:
             time_log = serializer.save()
@@ -444,7 +445,25 @@ class ElasticSearchViewSet(GenericViewSet):
                 description="Length of the response (optional, defaults to 20)",
             ),
         ],
-        responses={200: "Response schema or serializer here"},
+        responses={
+            200: OpenApiResponse(
+                response=OpenApiTypes.OBJECT,
+                examples=[
+                    OpenApiExample(
+                        name="0",
+                        value=[
+                            {
+                                "user": {"email": "user1@example.com"},
+                                "comments": [{"body": "Test comment 1"}, {"body": "Test comment 2"}],
+                                "title": "Test task 1",
+                                "description": "Test description 1",
+                                "is_completed": False,
+                            }
+                        ],
+                    )
+                ],
+            )
+        },
     )
     @action(detail=False, methods=["GET"], url_path="task", url_name="task")
     def task_search(self, request, *args, **kwargs):
@@ -490,6 +509,8 @@ class AttachmentViewSet(
     queryset = Attachment.objects.all()
     serializer_class = AttachmentSerializer
     permission_classes = [IsAuthenticated]
+    filter_backends = [filters.DjangoFilterBackend]
+    filterset_class = AttachmentTaskFilter
     throttle_classes = [UserRateThrottle]
 
     @extend_schema(
@@ -505,32 +526,16 @@ class AttachmentViewSet(
 
         instance = Attachment(file=file_name, task=task)
 
+        instance.full_clean()
         instance.save()
 
         serializer = AttachmentSerializer(instance)
 
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-    @extend_schema(responses={200: AttachmentSerializer(many=True)})
-    @action(detail=False, methods=["GET"], url_path="task/(?P<pk>[^/.]+)", url_name="task")
-    def task(self, request, *args, **kwargs):
-        task_id = self.kwargs.get("pk")
-        if not Task.objects.filter(id=task_id).exists():
-            return Response({"error": "Task not found"}, status=status.HTTP_404_NOT_FOUND)
-
-        task = Task.objects.get(pk=task_id)
-        queryset = Attachment.objects.filter(task=task)
-        page = self.paginate_queryset(queryset)
-        if page is not None:
-            serializer = self.get_serializer(page, many=True)
-            return self.get_paginated_response(serializer.data)
-
-        serializer = self.get_serializer(queryset, many=True)
-        return Response(serializer.data)
-
     @extend_schema(
         request=AttachmentEventSerializer,
-        responses={200: serializers.Serializer},
+        responses={200: {}},
         examples=[
             OpenApiExample(
                 "MinIO Event Example",

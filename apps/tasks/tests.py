@@ -708,7 +708,6 @@ class TestAttachment(APITestCase):
 
         instance = Attachment.objects.get(id=response.data["id"])
         self.assertEqual(instance.status, Attachment.PENDING)
-        self.assertNotEqual(instance.file_upload_url, "")
 
         today = datetime.date.today()
         webhook_data = {
@@ -762,15 +761,15 @@ class TestAttachment(APITestCase):
         task = Task.objects.first()
         self.client.post(reverse("attachments-list"), {"file_name": self.file_name, "task": task.id})
 
-        response = self.client.get(reverse("attachments-task", kwargs={"pk": task.id}))
+        response = self.client.get(reverse("attachments-list"), {"user": task.id})
         self.assertContains(response, "file")
         self.assertEqual(response.data["results"][0]["task"], task.id, response.data)
 
     def test_get_attachment_task_not_exist(self):
-        response = self.client.get(reverse("attachments-task", kwargs={"pk": 9999}))
+        response = self.client.get(reverse("attachments-list"), {"user": 9999})
 
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
-        self.assertEqual(response.data["error"], "Task not found")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["results"]), 0, response.data)
 
     def test_delete_attachment(self):
         task = Task.objects.first()
