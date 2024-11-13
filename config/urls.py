@@ -21,7 +21,7 @@ from rest_framework.routers import SimpleRouter
 from drf_spectacular.views import SpectacularSwaggerView, SpectacularAPIView, SpectacularRedocView
 
 from apps.users.views import UserViewSet
-from apps.tasks.views import TaskViewSet, CommentViewSet, TaskTimeLogViewSet, ElasticSearchViewSet
+from apps.tasks.views import TaskViewSet, CommentViewSet, TaskTimeLogViewSet, ElasticSearchViewSet, AttachmentViewSet
 
 router = SimpleRouter()
 router.register("users", UserViewSet, basename="users")
@@ -29,7 +29,7 @@ router.register("tasks", TaskViewSet, basename="tasks")
 router.register("comments", CommentViewSet, basename="comments")
 router.register("timelogs", TaskTimeLogViewSet, basename="timelogs")
 router.register("elasticsearch", ElasticSearchViewSet, basename="elasticsearch")
-
+router.register("attachments", AttachmentViewSet, basename="attachments")
 urlpatterns = [
     path("accounts/", include("allauth.urls")),
     path("admin/", admin.site.urls),

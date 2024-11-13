@@ -5,19 +5,20 @@ from django.contrib.auth import get_user_model
 from drf_spectacular.openapi import OpenApiExample, OpenApiTypes
 from drf_spectacular.utils import extend_schema, OpenApiResponse, inline_serializer, OpenApiParameter
 from elasticsearch_dsl.query import Q
-from rest_framework.pagination import LimitOffsetPagination
-from rest_framework.parsers import FormParser, MultiPartParser
-from rest_framework.throttling import UserRateThrottle, ScopedRateThrottle
+from django_filters import rest_framework as filters
 
+from rest_framework.pagination import LimitOffsetPagination
+from rest_framework.throttling import UserRateThrottle, ScopedRateThrottle
 from rest_framework.viewsets import ModelViewSet, GenericViewSet
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework import status, mixins, serializers
 
 from apps.tasks.documents import TaskDocument
 from apps.tasks.exceptions import TimeLogError
-from apps.tasks.models import Task, Comment, TimeLog, TaskAttachment
+from apps.tasks.filters import AttachmentTaskFilter
+from apps.tasks.models import Task, Comment, TimeLog, Attachment
 from apps.tasks.serializers import (
     TaskSerializer,
     TaskPreviewSerializer,
@@ -26,8 +27,10 @@ from apps.tasks.serializers import (
     CommentSerializer,
     TimeLogSerializer,
     TimeLogTopSerializer,
-    TaskAttachmentSerializer,
+    AttachmentSerializer,
     TaskElasticSearchSerializer,
+    AttachmentUploadSerializer,
+    AttachmentEventSerializer,
 )
 from apps.tasks.signals import task_comment, task_assigned, task_complete, task_undo
 
@@ -76,7 +79,7 @@ class TaskViewSet(ModelViewSet):
 
     #
     @extend_schema(responses={200: TaskPreviewSerializer(many=True)})
-    @action(detail=False, methods=["GET"], url_path="users/(?P<pk>[^/.]+)", url_name="user")
+    @action(detail=False, methods=["GET"], url_path="user/(?P<pk>[^/.]+)", url_name="user")
     def user_tasks(self, request, *args, **kwargs):
         user_id = self.kwargs.get("pk")
         if not User.objects.filter(id=user_id).exists():
@@ -291,48 +294,6 @@ class TaskViewSet(ModelViewSet):
         serializer = TimeLogSerializer(queryset, many=True)
         return Response(serializer.data)
 
-    @extend_schema(
-        request={
-            "multipart/form-data": {"type": "object", "properties": {"image": {"type": "string", "format": "binary"}}}
-        },
-        responses={
-            201: OpenApiResponse(
-                OpenApiTypes.OBJECT, examples=[OpenApiExample(name="0", value={"attach_id": 0, "task_id": 0})]
-            )
-        },
-    )
-    @action(
-        detail=True,
-        methods=["POST"],
-        parser_classes=[MultiPartParser, FormParser],
-        serializer_class=TaskAttachmentSerializer,
-    )
-    def attachment(self, request, *args, **kwargs):
-        task = self.get_object()
-        request_data = request.data
-        request_data["task"] = task.id
-        serializer = TaskAttachmentSerializer(data=request_data)
-
-        serializer.is_valid(raise_exception=False)
-        instance = serializer.save()
-
-        return Response({"attach_id": instance.id, "task_id": task.id}, status=status.HTTP_201_CREATED)
-
-    @extend_schema(responses={200: TaskAttachmentSerializer(many=True)})
-    @action(detail=True, methods=["GET"], serializer_class=TaskAttachmentSerializer)
-    def attachments(self, request, *args, **kwargs):
-        if not Task.objects.filter(id=kwargs["pk"]).exists():
-            return Response({"error": "Task does not exist"}, status=status.HTTP_404_NOT_FOUND)
-
-        queryset = TaskAttachment.objects.filter(task=kwargs["pk"])
-        page = self.paginate_queryset(queryset)
-        if page is not None:
-            serializer = self.get_serializer(page, many=True)
-            return self.get_paginated_response(serializer.data)
-
-        serializer = self.get_serializer(queryset, many=True)
-        return Response(serializer.data)
-
 
 class CommentViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, mixins.UpdateModelMixin, GenericViewSet):
     queryset = Comment.objects.all()
@@ -389,12 +350,11 @@ class TaskTimeLogViewSet(mixins.CreateModelMixin, GenericViewSet):
             return Response({"error": "Task does not exist"}, status=status.HTTP_400_BAD_REQUEST)
 
         log_user = Task.objects.get(id=request.data["task"]).user
+        if log_user != request.user:
+            return Response({"message": "You are not authorized to log time for this task"}, status=403)
 
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-
-        if log_user != request.user:
-            return Response({"message": "You are not authorized to log time for this task"}, status=403)
 
         try:
             time_log = serializer.save()
@@ -485,7 +445,25 @@ class ElasticSearchViewSet(GenericViewSet):
                 description="Length of the response (optional, defaults to 20)",
             ),
         ],
-        responses={200: "Response schema or serializer here"},
+        responses={
+            200: OpenApiResponse(
+                response=OpenApiTypes.OBJECT,
+                examples=[
+                    OpenApiExample(
+                        name="0",
+                        value=[
+                            {
+                                "user": {"email": "user1@example.com"},
+                                "comments": [{"body": "Test comment 1"}, {"body": "Test comment 2"}],
+                                "title": "Test task 1",
+                                "description": "Test description 1",
+                                "is_completed": False,
+                            }
+                        ],
+                    )
+                ],
+            )
+        },
     )
     @action(detail=False, methods=["GET"], url_path="task", url_name="task")
     def task_search(self, request, *args, **kwargs):
@@ -523,3 +501,72 @@ class ElasticSearchViewSet(GenericViewSet):
         search_results = [hit.to_dict() for hit in search_result]
 
         return Response(search_results)
+
+
+class AttachmentViewSet(
+    mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.CreateModelMixin, mixins.DestroyModelMixin, GenericViewSet
+):
+    queryset = Attachment.objects.all()
+    serializer_class = AttachmentSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [filters.DjangoFilterBackend]
+    filterset_class = AttachmentTaskFilter
+    throttle_classes = [UserRateThrottle]
+
+    @extend_schema(
+        request=AttachmentUploadSerializer,
+    )
+    def create(self, request, *args, **kwargs):
+        serializer = AttachmentUploadSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        task_id = serializer.validated_data.get("task")
+        task = Task.objects.get(pk=task_id)
+        file_name = serializer.validated_data.get("file_name")
+
+        instance = Attachment(file=file_name, task=task)
+
+        instance.full_clean()
+        instance.save()
+
+        serializer = AttachmentSerializer(instance)
+
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    @extend_schema(
+        request=AttachmentEventSerializer,
+        responses={200: {}},
+        examples=[
+            OpenApiExample(
+                "MinIO Event Example",
+                value={
+                    "EventName": "s3:ObjectCreated:Put",
+                    "Key": "django-media-files-bucket/task-attachments/2020-01-01/attachments.jpg",
+                    "Records": [
+                        {
+                            "eventTime": "2020-01-01T00:00:00.000Z",
+                        }
+                    ],
+                },
+                request_only=True,
+            )
+        ],
+    )
+    @action(detail=False, methods=["POST"], permission_classes=[AllowAny], throttle_classes=[])
+    def webhook(self, request, *args, **kwargs):
+        event = request.data.get("EventName")
+        if not event == "s3:ObjectCreated:Put":
+            return Response({"error": "Wrong Request"}, status=status.HTTP_400_BAD_REQUEST)
+
+        key = request.data["Key"]
+        path = key.split("/", 1)[1]
+        if not Attachment.objects.filter(file=path).exists():
+            return Response({"error": "Attachment does not exist"}, status=status.HTTP_404_NOT_FOUND)
+
+        instance = Attachment.objects.get(file=path)
+
+        instance.status = Attachment.READY
+        instance.file_upload_url = ""
+        instance.save()
+
+        return Response()

@@ -49,8 +49,6 @@ SECRET_KEY = "django-insecure-cug=50j#8tv^tw!dvg@e!0snq^p+#ikhwv$6q6zslmt@pp$x0f
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env.bool("DEBUG", default=True)
 
-ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
-
 # Application definition
 
 INSTALLED_APPS = [
@@ -68,10 +66,11 @@ INSTALLED_APPS = [
     "allauth.socialaccount.providers.github",
     "django_celery_results",
     "django_celery_beat",
+    "corsheaders",
     "rest_framework",
     "rest_framework.authtoken",
-    "corsheaders",
     "drf_spectacular",
+    "django_filters",
     # Local apps
     "apps.common",
     "apps.users",
@@ -117,6 +116,8 @@ TEMPLATES = [
     },
 ]
 
+ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
+
 WSGI_APPLICATION = "config.wsgi.application"
 
 CORS_ORIGIN_ALLOW_ALL = env.bool("CORS_ORIGIN_ALLOW_ALL", default=False)
@@ -126,6 +127,8 @@ CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[])
 CORS_ALLOWED_ORIGIN_REGEXES = [r".*://localhost:.*", r".*://127.0.0.1:.*"]
 
 CORS_ALLOWED_ORIGIN_REGEXES += list(map(lambda host: f".*://{host}:.*", ALLOWED_HOSTS))
+
+CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])
 
 CORS_ALLOW_HEADERS = (
     "accept",
@@ -329,8 +332,12 @@ CELERY_TASK_SERIALIZER = "json"
 
 CELERY_BEAT_SCHEDULE = {
     "weekly_task_report": {
-        "task": "your_app.tasks.send_weekly_report",
+        "task": "apps.tasks.tasks.send_weekly_report",
         "schedule": crontab(hour=7, minute=30, day_of_week=1),
+    },
+    "daily_prune_attachments": {
+        "task": "apps.tasks.tasks.prune_attachments",
+        "schedule": crontab(hour=6, minute=0),
     },
 }
 

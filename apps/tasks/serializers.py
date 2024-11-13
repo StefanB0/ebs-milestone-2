@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
-from apps.tasks.models import Task, Comment, TimeLog, TaskAttachment
+
+from apps.tasks.models import Task, Comment, TimeLog, Attachment
 
 
 class TaskSerializer(serializers.ModelSerializer):
@@ -41,12 +42,34 @@ class CommentSerializer(serializers.ModelSerializer):
         extra_kwargs = {"user": {"default": serializers.CurrentUserDefault(), "read_only": True}}
 
 
-class TaskAttachmentSerializer(serializers.ModelSerializer):
+class AttachmentUploadSerializer(serializers.Serializer):
+    file_name = serializers.CharField(max_length=100)
+    task = serializers.IntegerField()
+
+    def validate(self, attrs):
+        if not Task.objects.filter(id=attrs["task"]).exists():
+            raise serializers.ValidationError({"task": "Not found"})
+
+        file_name = attrs.get("file_name")
+        valid_extensions = [".jpg", ".jpeg", ".png", ".pdf"]
+
+        if not any(file_name.lower().endswith(ext) for ext in valid_extensions):
+            raise serializers.ValidationError({"file_name": "File must be an image or PDF"})
+        return attrs
+
+
+class AttachmentSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(source="pk", read_only=True)
 
     class Meta:
-        model = TaskAttachment
-        fields = ["id", "image", "task"]
+        model = Attachment
+        fields = ["id", "file", "task", "file_upload_url", "status"]
+
+
+class AttachmentEventSerializer(serializers.Serializer):
+    EventName = serializers.CharField()
+    Key = serializers.CharField()
+    Records = serializers.ListField(child=serializers.DictField(child=serializers.CharField()))
 
 
 class TaskElasticSearchSerializer(serializers.Serializer):
@@ -58,6 +81,10 @@ class TaskElasticSearchSerializer(serializers.Serializer):
 
 class TimeLogSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(source="pk", read_only=True)
+
+    def create(self, validated_data):
+        TimeLog(**validated_data).full_clean()
+        return super().create(validated_data)
 
     class Meta:
         model = TimeLog
