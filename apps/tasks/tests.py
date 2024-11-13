@@ -277,7 +277,7 @@ class TestTasks(APITestCase):
         response = self.client.get(reverse("tasks-detail", args=[1]))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-        for i in range(0, 10):
+        for i in range(0, 100):
             self.client.get(reverse("tasks-detail", args=[1]))
 
         response = self.client.get(reverse("tasks-detail", args=[1]))
@@ -337,7 +337,7 @@ class TestComments(APITestCase):
     def test_throttle(self):
         CommentViewSet.throttle_classes = [UserRateThrottle]
 
-        for i in range(0, 10):
+        for i in range(0, 100):
             self.client.get(reverse("tasks-comments", args=[1]))
 
         response = self.client.get(reverse("tasks-comments", args=[1]))
@@ -648,7 +648,7 @@ class TestTimeLog(APITestCase):
 
     def test_throttle(self):
         TaskTimeLogViewSet.throttle_classes = [UserRateThrottle]
-        for i in range(0, 10):
+        for i in range(0, 100):
             self.client.get(reverse("timelogs-top"))
 
         response = self.client.get(reverse("timelogs-top"))
@@ -780,7 +780,7 @@ class TestAttachment(APITestCase):
 
     def test_throttle(self):
         AttachmentViewSet.throttle_classes = [UserRateThrottle]
-        for i in range(0, 10):
+        for i in range(0, 100):
             self.client.get(reverse("attachments-list"))
 
         response = self.client.get(reverse("attachments-list"))
@@ -867,6 +867,7 @@ class TestElasticSearch(APITestCase):
     def test_throttle(self):
         ElasticSearchViewSet.throttle_classes = [ScopedRateThrottle]
 
+        self.client.get(reverse("elasticsearch-task"), {"comment_body": "spider"})
         self.client.get(reverse("elasticsearch-task"), {"comment_body": "spider"})
         response = self.client.get(reverse("elasticsearch-task"), {"comment_body": "spider"})
         self.assertEqual(response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
